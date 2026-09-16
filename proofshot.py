@@ -48,7 +48,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-__version__ = "0.1.7"
+__version__ = "0.1.8"
 
 STATE_DIR = Path.home() / ".config" / "proofshot"
 STATE_FILE = STATE_DIR / "last_dir"
@@ -60,6 +60,10 @@ DEFAULT_CONFIG = {
     "proof_category": "Proof",
     "filename_prefix": "{directory}Q",
     "filename_suffix": "{category}",
+    "categories": {
+        "Form": {"suffix": ""},
+        "Proof": {"suffix": "{category}"},
+    },
 }
 
 def ensure_state_dir():
@@ -85,11 +89,20 @@ def load_config(project_dir: Path | None = None) -> dict:
             data = json.loads(config_file.read_text())
             if isinstance(data, dict):
                 for key in config:
-                    if isinstance(data.get(key), str) and data[key]:
+                    if key == "categories" and isinstance(data.get(key), dict):
+                        config[key] = data[key]
+                    elif isinstance(data.get(key), str) and data[key]:
                         config[key] = data[key]
         except json.JSONDecodeError:
             print(f"Warning: ignoring invalid config file: {config_file}", file=sys.stderr)
     return config
+
+def naming_for_category(config: dict, category: str) -> tuple[str, str]:
+    """Return the effective prefix and suffix for a category."""
+    category_config = config.get("categories", {}).get(category, {})
+    prefix = category_config.get("prefix", config["filename_prefix"])
+    suffix = category_config.get("suffix", config["filename_suffix"])
+    return prefix, suffix
 
 def load_counts() -> dict:
     """Load last question numbers for every category."""
@@ -583,10 +596,10 @@ def main():
     update_count_for_type(shot_type, load_counts(), steps)
 
     # Filename construction
-    prefix = args.name or config["filename_prefix"]
+    prefix, suffix = naming_for_category(config, shot_type)
+    prefix = args.name or prefix
     prefix = prefix.replace("{directory}", target_dir.name).replace("{category}", shot_type)
-    suffix = config["filename_suffix"]
-    if shot_type == config["form_category"] and suffix == DEFAULT_CONFIG["filename_suffix"]:
+    if shot_type == config["form_category"] and shot_type not in config.get("categories", {}):
         suffix = ""
     suffix = suffix.replace("{directory}", target_dir.name).replace("{category}", shot_type)
     base_name = f"{prefix}{question_str}{suffix}"

@@ -2,7 +2,7 @@
 
 Proofshot is a Linux CLI screenshot organizer for students, penetration testers, and anyone who needs fast screenshot enumeration, tracking, categorization, and naming. It wraps [Flameshot](https://flameshot.org/) and supports numbered captures, ranges, persistent modules, custom categories, and table listings.
 
-Current version: `0.1.7`
+Current version: `0.1.8`
 
 ## Install
 
@@ -152,18 +152,36 @@ Counters are stored in `~/.config/proofshot/counts.json`; the selected directory
   "form_category": "Form",
   "proof_category": "Proof",
   "filename_prefix": "{directory}Q",
-  "filename_suffix": "{category}"
+  "filename_suffix": "{category}",
+  "categories": {
+    "Form": {
+      "suffix": ""
+    },
+    "Proof": {
+      "suffix": "{category}"
+    }
+  }
 }
 ```
 
-`{directory}` is replaced with the destination folder name and `{category}` with the selected category. The prefix controls everything before the number, including the `Q` marker. The default prefix is `{directory}Q`, preserving names such as `AcmeWebQ1.png`; Proof and custom categories retain their category suffix. Put this file inside each project directory to customize that project independently. For example, this configuration renames the default columns and adds a fixed prefix:
+`filename_prefix` and `filename_suffix` are global defaults. Entries under `categories` override them for individual categories. `{directory}` is replaced with the destination folder name and `{category}` with the selected category. The prefix controls everything before the number, including the `Q` marker. The default prefix is `{directory}Q`, preserving names such as `AcmeWebQ1.png`; Proof and custom categories retain their category suffix. Put this file inside each project directory to customize that project independently. For example:
 
 ```json
 {
   "form_category": "Question",
   "proof_category": "Verified",
   "filename_prefix": "Lab-{directory}Q",
-  "filename_suffix": "-{category}"
+  "filename_suffix": "-{category}",
+  "categories": {
+    "Finding": {
+      "prefix": "Finding-",
+      "suffix": "-{category}"
+    },
+    "Evidence": {
+      "prefix": "Evidence-Q",
+      "suffix": ""
+    }
+  }
 }
 ```
 
