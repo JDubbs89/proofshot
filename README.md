@@ -64,6 +64,14 @@ For a release installation without cloning the repository:
 curl -fsSL https://raw.githubusercontent.com/JDubbs89/proofshot/main/uninstall.sh | bash
 ```
 
+If the installed command is available, it can uninstall itself:
+
+```bash
+proofshot --uninstall
+```
+
+This removes the executable but preserves saved settings and counters. Use `./uninstall.sh --purge` from a checkout to remove those as well.
+
 The installer gathers `flameshot`, `zenity`, and `libnotify` using `apt`, `dnf`, `pacman`, or `zypper`. It may ask for `sudo`. Set `PROOFSHOT_SKIP_DEPS=1` to skip dependency installation. Running `install.sh` again from the checkout pulls fast-forward updates and reinstalls the command. Set `PROOFSHOT_BIN_DIR=/usr/local/bin` for a system-wide install (with appropriate permissions).
 
 ## Quick start

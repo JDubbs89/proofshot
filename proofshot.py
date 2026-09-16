@@ -308,6 +308,19 @@ def send_notification(target: Path):
         subprocess.run(["notify-send", "Screenshot Saved", str(target)],
                        stderr=subprocess.DEVNULL)
 
+def uninstall_command():
+    """Remove the installed executable without deleting saved settings."""
+    executable = Path(sys.argv[0]).resolve()
+    source_file = Path(__file__).resolve()
+    if executable == source_file or executable.suffix == ".py":
+        sys.exit("Refusing to remove the source file. Run the installed `proofshot --uninstall` command.")
+    if executable.exists():
+        executable.unlink()
+        print(f"Removed {executable}")
+    else:
+        print("proofshot is not installed at the requested path.")
+    print(f"Saved configuration was kept in {STATE_DIR}")
+
 def main():
     parser = argparse.ArgumentParser(
         prog="proofshot",
@@ -329,6 +342,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument("--uninstall", action="store_true",
+                        help="Remove the installed proofshot command (keeps saved settings)")
 
     group_questions = parser.add_argument_group('Question Parameters')
     group_questions.add_argument("-Q", "--question", metavar="NUM",
@@ -368,6 +383,9 @@ def main():
                         help="Suppress the final confirmation box")
 
     args = parser.parse_args()
+
+    if args.uninstall:
+        uninstall_command()
 
     # Resolve -P shortcut into --proof flag
     if args.proof_shortcut:
