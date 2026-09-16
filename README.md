@@ -2,7 +2,7 @@
 
 Proofshot is a Linux CLI screenshot organizer for students, penetration testers, and anyone who needs fast screenshot enumeration, tracking, categorization, and naming. It wraps [Flameshot](https://flameshot.org/) and supports numbered captures, ranges, persistent modules, custom categories, and table listings.
 
-Current version: `0.1.8`
+Current version: `0.1.9`
 
 ## Install
 
@@ -184,6 +184,15 @@ Counters are stored in `~/.config/proofshot/counts.json`; the selected directory
   }
 }
 ```
+
+Custom columns are created from the command line or declared in the project config. For example, adding `Finding` and `Evidence` to `categories` makes them available for that project:
+
+```bash
+proofshot -C Finding -N
+proofshot -C Evidence -N
+```
+
+Declared category columns can also be selected by zero-based number with `-C 2`, `-C 3`, and so on. The built-in categories occupy the earlier columns according to the project configuration and saved counters.
 
 ## Requirements
 

@@ -48,7 +48,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-__version__ = "0.1.8"
+__version__ = "0.1.9"
 
 STATE_DIR = Path.home() / ".config" / "proofshot"
 STATE_FILE = STATE_DIR / "last_dir"
@@ -531,6 +531,9 @@ def main():
 
     # Resolve category for index/capture operations. -P remains a Proof alias.
     counts = load_counts()
+    for category in config.get("categories", {}):
+        if isinstance(category, str):
+            counts.setdefault(category, 0)
     counts["__proof_flag__"] = args.proof
     try:
         shot_type = resolve_category(args.category, counts, config)
