@@ -10,6 +10,28 @@ cd proofshot
 ./install.sh
 ```
 
+One-liners by distribution:
+
+Debian / Ubuntu:
+```bash
+sudo apt-get update && sudo apt-get install -y git && git clone https://github.com/JDubbs89/proofshot.git && cd proofshot && ./install.sh
+```
+
+Fedora / RHEL:
+```bash
+sudo dnf install -y git && git clone https://github.com/JDubbs89/proofshot.git && cd proofshot && ./install.sh
+```
+
+Arch Linux:
+```bash
+sudo pacman -Sy --needed --noconfirm git && git clone https://github.com/JDubbs89/proofshot.git && cd proofshot && ./install.sh
+```
+
+openSUSE:
+```bash
+sudo zypper --non-interactive install git && git clone https://github.com/JDubbs89/proofshot.git && cd proofshot && ./install.sh
+```
+
 The installer gathers `flameshot`, `zenity`, and `libnotify` using `apt`, `dnf`, `pacman`, or `zypper`. It may ask for `sudo`. Set `PROOFSHOT_SKIP_DEPS=1` to skip dependency installation. Running `install.sh` again from the checkout pulls fast-forward updates and reinstalls the command. Set `PROOFSHOT_BIN_DIR=/usr/local/bin` for a system-wide install (with appropriate permissions).
 
 ## Quick start
