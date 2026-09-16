@@ -26,6 +26,38 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      - name: Synchronize application version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["VERSION"]
+          path = Path("proofshot.py")
+          source = path.read_text()
+          updated, replacements = re.subn(
+              r'(?m)^__version__\s*=\s*"[^"]+"$',
+              f'__version__ = "{version}"',
+              source,
+              count=1,
+          )
+          if replacements != 1:
+              raise SystemExit("Could not find __version__ in proofshot.py")
+          path.write_text(updated)
+          PY
+
+          if ! git diff --quiet -- proofshot.py; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add proofshot.py
+            git commit -m "Synchronize version to ${VERSION}"
+            git push
+          fi
+
       - name: Create release when version is new
         env:
           GH_TOKEN: ${{ github.token }}

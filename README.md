@@ -2,7 +2,7 @@
 
 Proofshot is a Linux CLI screenshot organizer for students, penetration testers, and anyone who needs fast screenshot enumeration, tracking, categorization, and naming. It wraps [Flameshot](https://flameshot.org/) and supports numbered captures, ranges, persistent modules, custom categories, and table listings.
 
-Current version: `0.1.2`
+Current version: `0.1.3`
 
 ## Install
 
@@ -50,7 +50,7 @@ sudo zypper --non-interactive install git && git clone https://github.com/JDubbs
 
 The installer gathers `flameshot`, `zenity`, and `libnotify` using `apt`, `dnf`, `pacman`, or `zypper`. It may ask for `sudo`. Set `PROOFSHOT_SKIP_DEPS=1` to skip dependency installation. Running `install.sh` again from the checkout pulls fast-forward updates and reinstalls the command. Set `PROOFSHOT_BIN_DIR=/usr/local/bin` for a system-wide install (with appropriate permissions).
 
-Maintainers publish a release by changing the `Current version` value in `README.md` and pushing to `main`. GitHub Actions validates the semantic version, creates a `v<version>` tag, and packages the archive automatically. If that release already exists, the workflow does nothing.
+Maintainers publish a release by updating both `Current version` in `README.md` and `__version__` in `proofshot.py`, then pushing to `main`. GitHub Actions validates the README semantic version, creates a `v<version>` tag, and packages the archive automatically. If that release already exists, the workflow does nothing.
 
 ### Uninstall
 
