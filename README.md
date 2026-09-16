@@ -137,6 +137,28 @@ Run `proofshot -L` to see category columns. Numeric categories are zero-based: `
 
 Counters are stored in `~/.config/proofshot/counts.json`; the selected directory is stored in `~/.config/proofshot/last_dir`.
 
+Optional naming and category settings are stored per project in `<project-directory>/.proofshot.json`. If the file is absent, current behavior is used:
+
+```json
+{
+  "form_category": "Form",
+  "proof_category": "Proof",
+  "filename_prefix": "{directory}",
+  "filename_suffix": "{category}"
+}
+```
+
+`{directory}` is replaced with the destination folder name and `{category}` with the selected category. The default suffix is omitted for the Form category, preserving names such as `AcmeWebQ1.png`; Proof and custom categories retain their category suffix. Put this file inside each project directory to customize that project independently. For example, this configuration renames the default columns and adds a fixed prefix:
+
+```json
+{
+  "form_category": "Question",
+  "proof_category": "Verified",
+  "filename_prefix": "Lab-{directory}",
+  "filename_suffix": "-{category}"
+}
+```
+
 ## Requirements
 
 - Python 3.10+

@@ -50,10 +50,32 @@ __version__ = "0.1.3"
 STATE_DIR = Path.home() / ".config" / "proofshot"
 STATE_FILE = STATE_DIR / "last_dir"
 COUNTS_FILE = STATE_DIR / "counts.json"
+PROJECT_CONFIG_NAME = ".proofshot.json"
+DEFAULT_CONFIG = {
+    "form_category": "Form",
+    "proof_category": "Proof",
+    "filename_prefix": "{directory}",
+    "filename_suffix": "{category}",
+}
 
 def ensure_state_dir():
     """Create state directory if it doesn't exist."""
     STATE_DIR.mkdir(parents=True, exist_ok=True)
+
+def load_config(project_dir: Path | None = None) -> dict:
+    """Load project-local naming and category settings."""
+    config = DEFAULT_CONFIG.copy()
+    config_file = project_dir / PROJECT_CONFIG_NAME if project_dir else None
+    if config_file and config_file.exists():
+        try:
+            data = json.loads(config_file.read_text())
+            if isinstance(data, dict):
+                for key in config:
+                    if isinstance(data.get(key), str) and data[key]:
+                        config[key] = data[key]
+        except json.JSONDecodeError:
+            print(f"Warning: ignoring invalid config file: {config_file}", file=sys.stderr)
+    return config
 
 def load_counts() -> dict:
     """Load last question numbers for every category."""
@@ -79,6 +101,7 @@ def save_counts(counts: dict):
 
 def update_count_for_type(shot_type: str, counts: dict, steps: int) -> int:
     """Increment and return the new question number for this type."""
+    counts.setdefault(shot_type, 0)
     counts[shot_type] += steps
     save_counts(counts)
     return counts[shot_type]
@@ -93,10 +116,10 @@ def reset_indices():
     """Reset the default indices to 0."""
     save_counts({"Form": 0, "Proof": 0})
 
-def resolve_category(value: str | None, counts: dict) -> str:
+def resolve_category(value: str | None, counts: dict, config: dict) -> str:
     """Resolve a category name or zero-based category column number."""
     if not value:
-        return "Proof" if counts.get("__proof_flag__") else "Form"
+        return config["proof_category"] if counts.get("__proof_flag__") else config["form_category"]
     if value.isdigit():
         index = int(value)
         categories = [key for key in counts if not key.startswith("__")]
@@ -206,12 +229,13 @@ def build_question_string(start: int, end: int) -> str:
         return str(start)
     return f"{start}-{end}"
 
-def extract_question_files(target_dir: Path) -> dict:
+def extract_question_files(target_dir: Path, config: dict | None = None) -> dict:
     """Scan directory for proofshot files and return mapping of question numbers to filenames.
     
     Returns: {question_number: {category: [filenames]}}
     """
     mapping = {}
+    config = config or load_config(target_dir)
     
     # Pattern: ModuleQ1.png, ModuleQ1-5.png, ModuleQ1Proof.png, ModuleQ1-5Proof.png
     pattern = re.compile(r'^.*?Q(\d+)(?:-(\d+))?(.*)\.png$', re.IGNORECASE)
@@ -223,7 +247,7 @@ def extract_question_files(target_dir: Path) -> dict:
             end = int(match.group(2)) if match.group(2) else start
             
             suffix = match.group(3)
-            category = suffix if suffix else "Form"
+            category = suffix if suffix else config["form_category"]
             
             # Map each question number in the range
             for q_num in range(start, end + 1):
@@ -237,7 +261,7 @@ def extract_question_files(target_dir: Path) -> dict:
 
 def print_index_table(target_dir: Path):
     """Print a table of all question indices with their associated files."""
-    mapping = extract_question_files(target_dir)
+    mapping = extract_question_files(target_dir, load_config(target_dir))
     
     if not mapping:
         print_box("INDEX LISTING", [
@@ -451,14 +475,19 @@ def main():
         print_index_table(shown_dir)
         return
 
+    if target_dir is None:
+        target_dir = load_state()
+    config = load_config(target_dir)
+
     # Resolve category for index/capture operations. -P remains a Proof alias.
     counts = load_counts()
     counts["__proof_flag__"] = args.proof
     try:
-        shot_type = resolve_category(args.category, counts)
+        shot_type = resolve_category(args.category, counts, config)
     except ValueError as exc:
         parser.error(str(exc))
     counts.pop("__proof_flag__", None)
+    counts.setdefault(shot_type, 0)
 
     # Handle -I (index) flag
     if args.index is not None:
@@ -475,9 +504,6 @@ def main():
         print_box("PROOFSHOT: Directory Set",
                   [f"Destination: {display_path(target_dir)}"])
         return
-
-    if target_dir is None:
-        target_dir = load_state()
 
     # Check dependencies early
     check_dependencies()
@@ -520,9 +546,13 @@ def main():
     update_count_for_type(shot_type, load_counts(), steps)
 
     # Filename construction
-    base_name = f"{args.name or target_dir.name}Q{question_str}"
-    if shot_type != "Form":
-        base_name += shot_type
+    prefix = args.name or config["filename_prefix"]
+    prefix = prefix.replace("{directory}", target_dir.name).replace("{category}", shot_type)
+    suffix = config["filename_suffix"]
+    if shot_type == config["form_category"] and suffix == DEFAULT_CONFIG["filename_suffix"]:
+        suffix = ""
+    suffix = suffix.replace("{directory}", target_dir.name).replace("{category}", shot_type)
+    base_name = f"{prefix}Q{question_str}{suffix}"
     target = target_dir / f"{base_name}.png"
 
     if target.exists() and not args.force:
