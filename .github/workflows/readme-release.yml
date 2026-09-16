@@ -26,37 +26,28 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Synchronize application version
+      - name: Verify application version matches README
         env:
           VERSION: ${{ steps.version.outputs.version }}
         shell: bash
         run: |
-          python3 - <<'PY'
+          python3 - "$VERSION" <<'PY'
           import os
           import re
+          import sys
           from pathlib import Path
 
-          version = os.environ["VERSION"]
-          path = Path("proofshot.py")
-          source = path.read_text()
-          updated, replacements = re.subn(
-              r'(?m)^__version__\s*=\s*"[^"]+"$',
-              f'__version__ = "{version}"',
-              source,
-              count=1,
-          )
-          if replacements != 1:
+          expected = sys.argv[1]
+          source = Path("proofshot.py").read_text()
+          match = re.search(r'(?m)^__version__\s*=\s*"([^"]+)"$', source)
+          if not match:
               raise SystemExit("Could not find __version__ in proofshot.py")
-          path.write_text(updated)
+          if match.group(1) != expected:
+              raise SystemExit(
+                  f"Version mismatch: README.md is {expected}, proofshot.py is {match.group(1)}. "
+                  "Update both files before pushing."
+              )
           PY
-
-          if ! git diff --quiet -- proofshot.py; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add proofshot.py
-            git commit -m "Synchronize version to ${VERSION}"
-            git push
-          fi
 
       - name: Create release when version is new
         env:

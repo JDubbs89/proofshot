@@ -48,7 +48,11 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+<<<<<<< HEAD
 __version__ = "0.1.4"
+=======
+__version__ = "0.1.5"
+>>>>>>> bec1cf7 (fixing some source control problems)
 
 STATE_DIR = Path.home() / ".config" / "proofshot"
 STATE_FILE = STATE_DIR / "last_dir"
