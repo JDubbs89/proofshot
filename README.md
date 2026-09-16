@@ -6,19 +6,19 @@ Current version: `0.1.1`
 
 ## Install
 
-```bash
-git clone https://github.com/JDubbs89/proofshot.git
-cd proofshot
-./install.sh
-```
-
 Recommended one-liner from the latest GitHub release (all supported distributions):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/JDubbs89/proofshot/main/release-install.sh | bash
 ```
 
-This downloads the latest packaged release, installs dependencies, and updates the local command. Use `PROOFSHOT_SKIP_DEPS=1` before `bash` to skip dependency installation.
+The installer queries GitHub’s `releases/latest` endpoint, downloads that release’s packaged archive, installs dependencies, and updates the local command. Use `PROOFSHOT_SKIP_DEPS=1` before `bash` to skip dependency installation.
+
+Source-install fallback (clone the repository):
+
+```bash
+git clone https://github.com/JDubbs89/proofshot.git && cd proofshot && ./install.sh
+```
 
 Source-install one-liners by distribution:
 
@@ -40,20 +40,6 @@ sudo pacman -Sy --needed --noconfirm git && git clone https://github.com/JDubbs8
 openSUSE:
 ```bash
 sudo zypper --non-interactive install git && git clone https://github.com/JDubbs89/proofshot.git && cd proofshot && ./install.sh
-```
-
-### Install or update from the latest GitHub release
-
-After a release has been published, users can install or update without cloning the repository:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/JDubbs89/proofshot/main/release-install.sh | bash
-```
-
-The release installer downloads the latest `.tar.gz` asset, installs any missing dependencies, and replaces the local `proofshot` command. To skip dependency installation, use:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/JDubbs89/proofshot/main/release-install.sh | PROOFSHOT_SKIP_DEPS=1 bash
 ```
 
 Maintainers publish a release by changing the `Current version` value in `README.md` and pushing to `main`. GitHub Actions validates the semantic version, creates a `v<version>` tag, and packages the archive automatically. If that release already exists, the workflow does nothing.
