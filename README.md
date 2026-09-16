@@ -2,6 +2,8 @@
 
 Proofshot is a Linux CLI screenshot organizer for students, penetration testers, and anyone who needs fast screenshot enumeration, tracking, categorization, and naming. It wraps [Flameshot](https://flameshot.org/) and supports numbered captures, ranges, persistent modules, custom categories, and table listings.
 
+Current version: `0.1.0`
+
 ## Install
 
 ```bash
@@ -31,6 +33,22 @@ openSUSE:
 ```bash
 sudo zypper --non-interactive install git && git clone https://github.com/JDubbs89/proofshot.git && cd proofshot && ./install.sh
 ```
+
+### Install or update from the latest GitHub release
+
+After a release has been published, users can install or update without cloning the repository:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JDubbs89/proofshot/main/release-install.sh | bash
+```
+
+The release installer downloads the latest `.tar.gz` asset, installs any missing dependencies, and replaces the local `proofshot` command. To skip dependency installation, use:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JDubbs89/proofshot/main/release-install.sh | PROOFSHOT_SKIP_DEPS=1 bash
+```
+
+Maintainers publish a release by pushing a tag such as `v0.1.0`; GitHub Actions packages the archive automatically.
 
 The installer gathers `flameshot`, `zenity`, and `libnotify` using `apt`, `dnf`, `pacman`, or `zypper`. It may ask for `sudo`. Set `PROOFSHOT_SKIP_DEPS=1` to skip dependency installation. Running `install.sh` again from the checkout pulls fast-forward updates and reinstalls the command. Set `PROOFSHOT_BIN_DIR=/usr/local/bin` for a system-wide install (with appropriate permissions).
 
@@ -94,3 +112,9 @@ Counters are stored in `~/.config/proofshot/counts.json`; the selected directory
 - Optional: `zenity` and `notify-send`
 
 Run `proofshot --help` for the complete CLI reference.
+
+Check the installed version with:
+
+```bash
+proofshot --version
+```

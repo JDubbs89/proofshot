@@ -45,6 +45,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+__version__ = "0.1.0"
+
 STATE_DIR = Path.home() / ".config" / "proofshot"
 STATE_FILE = STATE_DIR / "last_dir"
 COUNTS_FILE = STATE_DIR / "counts.json"
@@ -326,6 +328,7 @@ def main():
   proofshot -W                      Show current directory""",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 
     group_questions = parser.add_argument_group('Question Parameters')
     group_questions.add_argument("-Q", "--question", metavar="NUM",
