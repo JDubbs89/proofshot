@@ -48,12 +48,13 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 
 STATE_DIR = Path.home() / ".config" / "proofshot"
 STATE_FILE = STATE_DIR / "last_dir"
 COUNTS_FILE = STATE_DIR / "counts.json"
 PROJECT_CONFIG_NAME = ".proofshot.json"
+DEFAULT_CONFIG_FILE = Path(__file__).resolve().parent / "default_config.json"
 DEFAULT_CONFIG = {
     "form_category": "Form",
     "proof_category": "Proof",
@@ -64,6 +65,16 @@ DEFAULT_CONFIG = {
 def ensure_state_dir():
     """Create state directory if it doesn't exist."""
     STATE_DIR.mkdir(parents=True, exist_ok=True)
+
+def create_project_config(project_dir: Path):
+    """Create a project config from the repository default without overwriting one."""
+    config_file = project_dir / PROJECT_CONFIG_NAME
+    if config_file.exists():
+        return
+    if DEFAULT_CONFIG_FILE.exists():
+        config_file.write_text(DEFAULT_CONFIG_FILE.read_text())
+    else:
+        config_file.write_text(json.dumps(DEFAULT_CONFIG, indent=2) + "\n")
 
 def load_config(project_dir: Path | None = None) -> dict:
     """Load project-local naming and category settings."""
@@ -457,6 +468,8 @@ def main():
             sys.exit(f"Directory {target_dir} already exists. Remove it manually or choose different name.")
         except PermissionError:
             sys.exit(f"Permission denied creating {target_dir}")
+
+        create_project_config(target_dir)
         
         # Reset indices to 0
         reset_indices()
@@ -466,8 +479,9 @@ def main():
         
         print_box("PROOFSHOT: Module Initialized", [
             f"Folder: {display_path(target_dir)}",
-            f"Form Index: 0",
-            f"Proof Index: 0",
+            f"Config: {PROJECT_CONFIG_NAME}",
+            "Form Index: 0",
+            "Proof Index: 0",
             "Next -N will create: Q1.png",
             "Next -P -N will create: Q1Proof.png"
         ])

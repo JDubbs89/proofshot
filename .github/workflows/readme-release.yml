@@ -51,7 +51,7 @@ jobs:
           archive="proofshot-${tag}.tar.gz"
           staging="proofshot-${tag}"
           mkdir "$staging"
-          cp proofshot.py install.sh uninstall.sh README.md "$staging/"
+          cp proofshot.py default_config.json install.sh uninstall.sh README.md "$staging/"
           tar -czf "$archive" "$staging"
           gh release create "$tag" "$archive" \
             --title "Proofshot $VERSION" \
