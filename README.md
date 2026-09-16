@@ -48,7 +48,7 @@ The release installer downloads the latest `.tar.gz` asset, installs any missing
 curl -fsSL https://raw.githubusercontent.com/JDubbs89/proofshot/main/release-install.sh | PROOFSHOT_SKIP_DEPS=1 bash
 ```
 
-Maintainers publish a release by pushing a tag such as `v0.1.0`; GitHub Actions packages the archive automatically.
+Maintainers publish a release by changing the `Current version` value in `README.md` and pushing to `main`. GitHub Actions validates the semantic version, creates a `v<version>` tag, and packages the archive automatically. If that release already exists, the workflow does nothing.
 
 The installer gathers `flameshot`, `zenity`, and `libnotify` using `apt`, `dnf`, `pacman`, or `zypper`. It may ask for `sudo`. Set `PROOFSHOT_SKIP_DEPS=1` to skip dependency installation. Running `install.sh` again from the checkout pulls fast-forward updates and reinstalls the command. Set `PROOFSHOT_BIN_DIR=/usr/local/bin` for a system-wide install (with appropriate permissions).
 
