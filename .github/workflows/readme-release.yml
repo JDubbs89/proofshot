@@ -15,39 +15,26 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Read and validate README version
+      - name: Read and validate Python version
         id: version
         shell: bash
         run: |
-          version="$(sed -nE 's/^Current version: `([^`]+)`.*/\1/p' README.md | head -n 1)"
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "README.md must contain: Current version: \`MAJOR.MINOR.PATCH\`" >&2
-            exit 1
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Verify application version matches README
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        shell: bash
-        run: |
-          python3 - "$VERSION" <<'PY'
-          import os
+          version="$(python3 - <<'PY'
           import re
-          import sys
           from pathlib import Path
 
-          expected = sys.argv[1]
           source = Path("proofshot.py").read_text()
           match = re.search(r'(?m)^__version__\s*=\s*"([^"]+)"$', source)
           if not match:
               raise SystemExit("Could not find __version__ in proofshot.py")
-          if match.group(1) != expected:
-              raise SystemExit(
-                  f"Version mismatch: README.md is {expected}, proofshot.py is {match.group(1)}. "
-                  "Update both files before pushing."
-              )
+          print(match.group(1))
           PY
+          )"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "proofshot.py __version__ must use MAJOR.MINOR.PATCH" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Create release when version is new
         env:

@@ -58,7 +58,7 @@ proofshot --update
 
 This downloads and installs the latest published GitHub release.
 
-Maintainers publish a release by updating both `Current version` in `README.md` and `__version__` in `proofshot.py`, then pushing to `main`. GitHub Actions validates that both values match, creates a `v<version>` tag, and packages the archive automatically. The workflow does not modify or push repository files. If that release already exists, the workflow does nothing.
+Maintainers publish a release by updating `__version__` in `proofshot.py` and pushing to `main`. GitHub Actions uses that Python version, creates a `v<version>` tag, and packages the archive automatically. The workflow does not modify or push repository files. If that release already exists, the workflow does nothing.
 
 ### Uninstall
 
