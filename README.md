@@ -2,7 +2,7 @@
 
 Proofshot is a Linux CLI screenshot organizer for students, penetration testers, and anyone who needs fast screenshot enumeration, tracking, categorization, and naming. It wraps [Flameshot](https://flameshot.org/) and supports numbered captures, ranges, persistent modules, custom categories, and table listings.
 
-Current version: `0.1.3`
+Current version: `0.1.4`
 
 ## Install
 
