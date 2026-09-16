@@ -43,6 +43,9 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 __version__ = "0.1.4"
@@ -345,6 +348,22 @@ def uninstall_command():
         print("proofshot is not installed at the requested path.")
     print(f"Saved configuration was kept in {STATE_DIR}")
 
+def update_command():
+    """Install the latest published GitHub release."""
+    installer_url = "https://raw.githubusercontent.com/JDubbs89/proofshot/main/release-install.sh"
+    try:
+        with urllib.request.urlopen(installer_url, timeout=30) as response:
+            installer = response.read()
+    except (urllib.error.URLError, TimeoutError) as exc:
+        sys.exit(f"Unable to download the update installer: {exc}")
+
+    with tempfile.NamedTemporaryFile(mode="wb", suffix="-proofshot-update.sh") as script:
+        script.write(installer)
+        script.flush()
+        result = subprocess.run(["bash", script.name])
+    if result.returncode != 0:
+        sys.exit(result.returncode)
+
 def main():
     parser = argparse.ArgumentParser(
         prog="proofshot",
@@ -368,6 +387,8 @@ def main():
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--uninstall", action="store_true",
                         help="Remove the installed proofshot command (keeps saved settings)")
+    parser.add_argument("--update", action="store_true",
+                        help="Download and install the latest GitHub release")
 
     group_questions = parser.add_argument_group('Question Parameters')
     group_questions.add_argument("-Q", "--question", metavar="NUM",
@@ -410,6 +431,8 @@ def main():
 
     if args.uninstall:
         uninstall_command()
+    if args.update:
+        update_command()
 
     # Resolve -P shortcut into --proof flag
     if args.proof_shortcut:
