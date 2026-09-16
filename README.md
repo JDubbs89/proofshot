@@ -2,11 +2,13 @@
 
 Proofshot is a Linux CLI screenshot organizer for students, penetration testers, and anyone who needs fast screenshot enumeration, tracking, categorization, and naming. It wraps [Flameshot](https://flameshot.org/) and supports numbered captures, ranges, persistent modules, custom categories, and table listings.
 
-Current version: `0.1.1`
+Current version: `0.1.2`
 
 ## Install
 
-Recommended one-liner from the latest GitHub release (all supported distributions):
+### Install from the latest GitHub release
+
+Recommended one-liner for all supported distributions:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/JDubbs89/proofshot/main/release-install.sh | bash
@@ -14,13 +16,15 @@ curl -fsSL https://raw.githubusercontent.com/JDubbs89/proofshot/main/release-ins
 
 The installer queries GitHub’s `releases/latest` endpoint, downloads that release’s packaged archive, installs dependencies, and updates the local command. Use `PROOFSHOT_SKIP_DEPS=1` before `bash` to skip dependency installation.
 
-Source-install fallback (clone the repository):
+### Install from source
+
+Clone the repository directly:
 
 ```bash
 git clone https://github.com/JDubbs89/proofshot.git && cd proofshot && ./install.sh
 ```
 
-Source-install one-liners by distribution:
+Or use a distro-specific one-liner:
 
 Debian / Ubuntu:
 ```bash
@@ -41,6 +45,10 @@ openSUSE:
 ```bash
 sudo zypper --non-interactive install git && git clone https://github.com/JDubbs89/proofshot.git && cd proofshot && ./install.sh
 ```
+
+### Dependencies and updates
+
+The installer gathers `flameshot`, `zenity`, and `libnotify` using `apt`, `dnf`, `pacman`, or `zypper`. It may ask for `sudo`. Set `PROOFSHOT_SKIP_DEPS=1` to skip dependency installation. Running `install.sh` again from the checkout pulls fast-forward updates and reinstalls the command. Set `PROOFSHOT_BIN_DIR=/usr/local/bin` for a system-wide install (with appropriate permissions).
 
 Maintainers publish a release by changing the `Current version` value in `README.md` and pushing to `main`. GitHub Actions validates the semantic version, creates a `v<version>` tag, and packages the archive automatically. If that release already exists, the workflow does nothing.
 
@@ -72,9 +80,7 @@ proofshot --uninstall
 
 This removes the executable but preserves saved settings and counters. Use `./uninstall.sh --purge` from a checkout to remove those as well.
 
-The installer gathers `flameshot`, `zenity`, and `libnotify` using `apt`, `dnf`, `pacman`, or `zypper`. It may ask for `sudo`. Set `PROOFSHOT_SKIP_DEPS=1` to skip dependency installation. Running `install.sh` again from the checkout pulls fast-forward updates and reinstalls the command. Set `PROOFSHOT_BIN_DIR=/usr/local/bin` for a system-wide install (with appropriate permissions).
-
-## Quick start
+## Basic usage
 
 ```bash
 proofshot --init ModuleName
@@ -86,6 +92,8 @@ proofshot -L
 ```
 
 `-D PATH` sets and persists the destination, `-W` displays it, and `-I NUMBER` sets the selected category's current index. `-N STEP` advances a category counter; add `-S` to capture the complete range from the previous index.
+
+### Categories and naming
 
 `Form` and `Proof` remain available for compatibility. `proofshot -N` uses category column `0` by default (the first category column after `Question`, which is `Form`). Use `-C NAME` to create or select categories such as `Evidence` or `Finding`; each gets its own counter. Use `-C 0`, `-C 1`, and so on to select zero-based category columns shown by `-L`. Use `--name PREFIX` to customize the filename prefix:
 
@@ -124,6 +132,8 @@ proofshot -C Finding -N       # AcmeWebQ8Finding.png
 ```
 
 Run `proofshot -L` to see category columns. Numeric categories are zero-based: `-C 0` selects the first category column after `Question`, `-C 1` the second, and so on. Names such as `-C Evidence` can always be used directly.
+
+### Configuration
 
 Counters are stored in `~/.config/proofshot/counts.json`; the selected directory is stored in `~/.config/proofshot/last_dir`.
 
