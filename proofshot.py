@@ -48,7 +48,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-__version__ = "0.1.6"
+__version__ = "0.1.7"
 
 STATE_DIR = Path.home() / ".config" / "proofshot"
 STATE_FILE = STATE_DIR / "last_dir"
@@ -58,7 +58,7 @@ DEFAULT_CONFIG_FILE = Path(__file__).resolve().parent / "default_config.json"
 DEFAULT_CONFIG = {
     "form_category": "Form",
     "proof_category": "Proof",
-    "filename_prefix": "{directory}",
+    "filename_prefix": "{directory}Q",
     "filename_suffix": "{category}",
 }
 
@@ -589,7 +589,7 @@ def main():
     if shot_type == config["form_category"] and suffix == DEFAULT_CONFIG["filename_suffix"]:
         suffix = ""
     suffix = suffix.replace("{directory}", target_dir.name).replace("{category}", shot_type)
-    base_name = f"{prefix}Q{question_str}{suffix}"
+    base_name = f"{prefix}{question_str}{suffix}"
     target = target_dir / f"{base_name}.png"
 
     if target.exists() and not args.force:

@@ -2,7 +2,7 @@
 
 Proofshot is a Linux CLI screenshot organizer for students, penetration testers, and anyone who needs fast screenshot enumeration, tracking, categorization, and naming. It wraps [Flameshot](https://flameshot.org/) and supports numbered captures, ranges, persistent modules, custom categories, and table listings.
 
-Current version: `0.1.6`
+Current version: `0.1.7`
 
 ## Install
 
@@ -106,7 +106,7 @@ proofshot -L
 `Form` and `Proof` remain available for compatibility. `proofshot -N` uses category column `0` by default (the first category column after `Question`, which is `Form`). Use `-C NAME` to create or select categories such as `Evidence` or `Finding`; each gets its own counter. Use `-C 0`, `-C 1`, and so on to select zero-based category columns shown by `-L`. Use `--name PREFIX` to customize the filename prefix:
 
 ```bash
-proofshot --name LoginPage -C Evidence -N
+proofshot --name LoginPageQ -C Evidence -N
 # LoginPageQ1Evidence.png
 ```
 
@@ -151,18 +151,18 @@ Counters are stored in `~/.config/proofshot/counts.json`; the selected directory
 {
   "form_category": "Form",
   "proof_category": "Proof",
-  "filename_prefix": "{directory}",
+  "filename_prefix": "{directory}Q",
   "filename_suffix": "{category}"
 }
 ```
 
-`{directory}` is replaced with the destination folder name and `{category}` with the selected category. The default suffix is omitted for the Form category, preserving names such as `AcmeWebQ1.png`; Proof and custom categories retain their category suffix. Put this file inside each project directory to customize that project independently. For example, this configuration renames the default columns and adds a fixed prefix:
+`{directory}` is replaced with the destination folder name and `{category}` with the selected category. The prefix controls everything before the number, including the `Q` marker. The default prefix is `{directory}Q`, preserving names such as `AcmeWebQ1.png`; Proof and custom categories retain their category suffix. Put this file inside each project directory to customize that project independently. For example, this configuration renames the default columns and adds a fixed prefix:
 
 ```json
 {
   "form_category": "Question",
   "proof_category": "Verified",
-  "filename_prefix": "Lab-{directory}",
+  "filename_prefix": "Lab-{directory}Q",
   "filename_suffix": "-{category}"
 }
 ```

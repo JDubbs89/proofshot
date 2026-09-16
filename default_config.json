@@ -1,6 +1,6 @@
 {
   "form_category": "Form",
   "proof_category": "Proof",
-  "filename_prefix": "{directory}",
+  "filename_prefix": "{directory}Q",
   "filename_suffix": "{category}"
 }
