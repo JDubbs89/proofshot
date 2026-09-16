@@ -12,7 +12,15 @@ cd proofshot
 ./install.sh
 ```
 
-One-liners by distribution:
+Recommended one-liner from the latest GitHub release (all supported distributions):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JDubbs89/proofshot/main/release-install.sh | bash
+```
+
+This downloads the latest packaged release, installs dependencies, and updates the local command. Use `PROOFSHOT_SKIP_DEPS=1` before `bash` to skip dependency installation.
+
+Source-install one-liners by distribution:
 
 Debian / Ubuntu:
 ```bash
