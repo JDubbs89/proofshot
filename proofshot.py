@@ -48,7 +48,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-__version__ = "0.1.9"
+__version__ = "0.1.20"
 
 STATE_DIR = Path.home() / ".config" / "proofshot"
 STATE_FILE = STATE_DIR / "last_dir"
@@ -139,9 +139,13 @@ def set_index_for_type(shot_type: str, index: int):
     counts[shot_type] = index
     save_counts(counts)
 
-def reset_indices():
-    """Reset the default indices to 0."""
-    save_counts({"Form": 0, "Proof": 0})
+def reset_indices(config: dict | None = None):
+    """Reset indices for the categories configured by the project."""
+    config = config or DEFAULT_CONFIG
+    categories = config.get("categories", {})
+    save_counts({str(name): 0 for name in categories} or {
+        config["form_category"]: 0, config["proof_category"]: 0
+    })
 
 def resolve_category(value: str | None, counts: dict, config: dict) -> str:
     """Resolve a category name or zero-based category column number."""
@@ -149,7 +153,9 @@ def resolve_category(value: str | None, counts: dict, config: dict) -> str:
         return config["proof_category"] if counts.get("__proof_flag__") else config["form_category"]
     if value.isdigit():
         index = int(value)
-        categories = [key for key in counts if not key.startswith("__")]
+        categories = list(config.get("categories", {}))
+        if not categories:
+            categories = [config["form_category"], config["proof_category"]]
         if index < 0 or index >= len(categories):
             raise ValueError(f"category column {index} is out of range (0-{len(categories) - 1})")
         return categories[index]
@@ -256,6 +262,24 @@ def build_question_string(start: int, end: int) -> str:
         return str(start)
     return f"{start}-{end}"
 
+def _filename_pattern(config: dict, category: str, directory: str) -> re.Pattern:
+    """Build a filename matcher from the configured prefix and suffix."""
+    prefix, suffix = naming_for_category(config, category)
+    # Prefixes include the marker (the default is ``{directory}Q``), so the
+    # matcher must not add another Q of its own.
+    directory_token = "__PROOFSHOT_DIRECTORY__"
+    category_token = "__PROOFSHOT_CATEGORY__"
+    number_token = "__PROOFSHOT_NUMBER__"
+    template = prefix.replace("{directory}", directory_token).replace(
+        "{category}", category_token
+    ) + number_token + suffix.replace(
+        "{directory}", directory_token).replace("{category}", category_token)
+    template = re.escape(template).replace(re.escape(directory_token), re.escape(directory))
+    template = template.replace(re.escape(category_token), re.escape(category))
+    template = template.replace(re.escape(number_token), r"(?P<start>\d+)(?:-(?P<end>\d+))?")
+    return re.compile(r"^" + template + r"\.png$", re.IGNORECASE)
+
+
 def extract_question_files(target_dir: Path, config: dict | None = None) -> dict:
     """Scan directory for proofshot files and return mapping of question numbers to filenames.
     
@@ -264,18 +288,16 @@ def extract_question_files(target_dir: Path, config: dict | None = None) -> dict
     mapping = {}
     config = config or load_config(target_dir)
     
-    # Pattern: ModuleQ1.png, ModuleQ1-5.png, ModuleQ1Proof.png, ModuleQ1-5Proof.png
-    pattern = re.compile(r'^.*?Q(\d+)(?:-(\d+))?(.*)\.png$', re.IGNORECASE)
-    
+    patterns = [(category, _filename_pattern(config, category, target_dir.name))
+                for category in config.get("categories", {})]
+
     for file in target_dir.glob('*.png'):
-        match = pattern.match(file.name)
-        if match:
-            start = int(match.group(1))
-            end = int(match.group(2)) if match.group(2) else start
-            
-            suffix = match.group(3)
-            category = suffix if suffix else config["form_category"]
-            
+        for category, pattern in patterns:
+            match = pattern.match(file.name)
+            if not match:
+                continue
+            start = int(match.group("start"))
+            end = int(match.group("end")) if match.group("end") else start
             # Map each question number in the range
             for q_num in range(start, end + 1):
                 if q_num not in mapping:
@@ -283,6 +305,7 @@ def extract_question_files(target_dir: Path, config: dict | None = None) -> dict
                 
                 filename_display = file.name
                 mapping[q_num].setdefault(category, []).append(filename_display)
+            break
     
     return mapping
 
@@ -485,7 +508,7 @@ def main():
         create_project_config(target_dir)
         
         # Reset indices to 0
-        reset_indices()
+        reset_indices(load_config(target_dir))
         
         # Persist the new directory
         save_state(target_dir)
