@@ -60,7 +60,7 @@ from lib.screenshot_service import (
     add_screenshot, available_providers, get_screenshot_service, remove_screenshot,
 )
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 def manage_project(args, target_dir: Path, config: dict) -> bool:
     """Apply one project-management operation and return whether one was requested."""
     operation = next((name for name in (
@@ -624,7 +624,8 @@ def main():
 
     if not success:
         target.unlink(missing_ok=True)
-        sys.exit("Capture cancelled or empty — nothing saved.")
+        detail = screenshot_service.last_error or "capture was cancelled or returned an empty image"
+        sys.exit(f"{load_provider()} capture failed: {detail} — nothing saved.")
 
     # Commit index state only after Flameshot has produced a valid screenshot.
     # This keeps cancellation (and other failed captures) side-effect free.

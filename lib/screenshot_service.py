@@ -17,13 +17,16 @@ class ScreenshotService:
 
     def capture(self, target: Path) -> bool:
         """Capture safely and reject failed or partial provider output."""
+        self.last_error = None
         try:
             target.unlink(missing_ok=True)
             self.capture_raw(target)
-        except (OSError, subprocess.SubprocessError):
+        except (OSError, subprocess.SubprocessError) as exc:
+            self.last_error = str(exc)
             target.unlink(missing_ok=True)
             return False
         if not target.is_file() or target.stat().st_size < 100:
+            self.last_error = "provider returned no usable PNG data"
             target.unlink(missing_ok=True)
             return False
         return True
@@ -46,9 +49,11 @@ class FlameshotService(ScreenshotService):
 
     def capture_raw(self, target: Path):
         with open(target, "wb") as output:
-            result = subprocess.run(["flameshot", "gui", "--raw"], stdout=output, check=False)
+            result = subprocess.run(["flameshot", "gui", "--raw"], stdout=output,
+                                    stderr=subprocess.PIPE, text=True, check=False)
         if result.returncode != 0:
-            raise subprocess.SubprocessError("Flameshot capture was cancelled or failed")
+            detail = result.stderr.strip() or f"exit code {result.returncode}"
+            raise subprocess.SubprocessError(f"Flameshot capture failed: {detail}")
 
 class GnomeScreenshotService(ScreenshotService):
     """GNOME Screenshot backend using its non-interactive file output mode."""
@@ -63,9 +68,12 @@ class GnomeScreenshotService(ScreenshotService):
             raise SystemExit("gnome-screenshot not found. Install it or choose another provider.")
 
     def capture_raw(self, target: Path):
-        result = subprocess.run(["gnome-screenshot", "-f", str(target)], check=False)
+        # -a opens the interactive area selector; -f writes the selected area.
+        result = subprocess.run(["gnome-screenshot", "-a", "-f", str(target)],
+                                stderr=subprocess.PIPE, text=True, check=False)
         if result.returncode != 0:
-            raise subprocess.SubprocessError("GNOME Screenshot was cancelled or failed")
+            detail = result.stderr.strip() or f"exit code {result.returncode}"
+            raise subprocess.SubprocessError(f"GNOME Screenshot failed: {detail}")
 
     @staticmethod
     def notify(target: Path):

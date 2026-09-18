@@ -12,7 +12,7 @@ proofshot --provider gnome-screenshot --install
 proofshot --provider flameshot
 ```
 
-Supported providers are `flameshot` and `gnome-screenshot`. The selected provider is stored in `~/.config/proofshot/provider` and is used for subsequent captures. Provider changes verify that the provider is installed; if it is missing, the change fails and leaves the current provider unchanged. Append `--install` to explicitly install the selected provider through the system package manager:
+Supported providers are `flameshot` and `gnome-screenshot`. Flameshot opens its normal region selector; GNOME Screenshot uses its interactive area selector. The selected provider is stored in `~/.config/proofshot/provider` and is used for subsequent captures. Provider changes verify that the provider is installed; if it is missing, the change fails and leaves the current provider unchanged. Append `--install` to explicitly install the selected provider through the system package manager:
 
 ```bash
 proofshot --provider gnome-screenshot --install
@@ -35,7 +35,7 @@ proofshot --set-column-suffix Evidence '-evidence'
 
 Built-in naming variables are `{directory}`, `{category}`, and `{number}`. Additional variables set with `--set-variable NAME VALUE` can be used in global or column-specific prefix and suffix templates.
 
-Current version: `0.2.1`
+Current version: `0.2.2`
 
 ## Install
 
