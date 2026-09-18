@@ -1,6 +1,7 @@
 {
   "form_category": "Form",
   "proof_category": "Proof",
+  "proofshot_version": "0.2.6",
   "filename_prefix": "{directory}Q",
   "filename_suffix": "{category}",
   "categories": {

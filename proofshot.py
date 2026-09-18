@@ -54,13 +54,15 @@ from lib.config_service import (
     reset_indices, resolve_category, save_config, save_counts, save_state,
     set_index_for_type, update_count_for_type, normalise_category,
     PROJECT_CONFIG_NAME, STATE_DIR, load_provider, save_provider, config_operation,
-    expand_template,
+    expand_template, image_hash, load_manifest, record_screenshot, project_version,
+    CURRENT_PROJECT_VERSION,
 )
 from lib.screenshot_service import (
     add_screenshot, available_providers, get_screenshot_service, remove_screenshot,
 )
+from lib.package_service import package_images
 
-__version__ = "0.2.5"
+__version__ = "0.2.6"
 def manage_project(args, target_dir: Path, config: dict) -> bool:
     """Apply one project-management operation and return whether one was requested."""
     operation = next((name for name in (
@@ -233,11 +235,36 @@ def extract_question_files(target_dir: Path, config: dict | None = None) -> dict
     """
     mapping = {}
     config = config or load_config(target_dir)
+
+    # Resolve by image content first, so renamed files retain their mapping.
+    manifest = load_manifest(target_dir)
+    manifest_by_hash = manifest.get("images", {})
+    manifest_files = set()
+    for file in target_dir.glob("*.png"):
+        try:
+            records = manifest_by_hash.get(image_hash(file), [])
+        except OSError:
+            records = []
+        usable_records = records if isinstance(records, list) else []
+        named_records = [record for record in usable_records if record.get("filename") == file.name]
+        for record in (named_records or usable_records):
+            category = record.get("category")
+            index = record.get("index")
+            if not isinstance(category, str) or not isinstance(index, int):
+                continue
+            index_end = record.get("index_end", index)
+            if not isinstance(index_end, int) or index_end < index:
+                index_end = index
+            for mapped_index in range(index, index_end + 1):
+                mapping.setdefault(mapped_index, {}).setdefault(category, []).append(file.name)
+            manifest_files.add(file.name)
     
     patterns = [(category, _filename_pattern(config, category, target_dir.name))
                 for category in config.get("categories", {})]
 
     for file in target_dir.glob('*.png'):
+        if file.name in manifest_files:
+            continue
         for category, pattern in patterns:
             match = pattern.match(file.name)
             if not match:
@@ -334,6 +361,66 @@ def update_command():
         sys.exit(result.returncode)
     sys.exit(0)
 
+def package_project(parser, target_dir: Path, config: dict, force: bool):
+    """Prompt for column/range selections and package their screenshots."""
+    mapping = extract_question_files(target_dir, config)
+    selected = []
+    print("Package screenshots (blank column finishes; blank range selects all indices).")
+    while True:
+        try:
+            column_value = input("Column name or index: ").strip()
+        except EOFError:
+            print()
+            break
+        if not column_value:
+            break
+        try:
+            category = resolve_category(column_value, {}, config)
+        except ValueError as exc:
+            parser.error(str(exc))
+        if not any(category in rows for rows in mapping.values()):
+            parser.error(f"no screenshots found for column: {category}")
+        try:
+            range_value = input("Index range (for example 1-5, or blank for all): ").strip()
+        except EOFError:
+            range_value = ""
+        if range_value:
+            try:
+                start, end = parse_question_arg(range_value)
+            except (TypeError, ValueError):
+                parser.error("index range must be a number or range such as 1-5")
+            indices = range(start, end + 1)
+        else:
+            indices = mapping.keys()
+        for index in indices:
+            selected.extend(mapping.get(index, {}).get(category, []))
+        print(f"Selected {category}.")
+    output = target_dir / "proofshot-package.zip"
+    try:
+        package_images(target_dir, selected, output, force)
+    except ValueError as exc:
+        parser.error(str(exc))
+    print(f"Created package: {output}")
+
+def upgrade_project(target_dir: Path, config: dict):
+    """Migrate legacy filename mappings into the content manifest."""
+    legacy_mapping = extract_question_files(target_dir, config)
+    records = {}
+    for index, categories in legacy_mapping.items():
+        for category, filenames in categories.items():
+            for filename in filenames:
+                record = records.setdefault(filename, {"category": category, "start": index, "end": index})
+                record["start"] = min(record["start"], index)
+                record["end"] = max(record["end"], index)
+    for filename, record in records.items():
+        screenshot = target_dir / filename
+        if screenshot.is_file():
+            record_screenshot(target_dir, screenshot, record["start"], record["category"], record["end"])
+    config["proofshot_version"] = CURRENT_PROJECT_VERSION
+    save_config(target_dir, config)
+    print(f"Upgraded project {target_dir} to Proofshot {CURRENT_PROJECT_VERSION}")
+    print(f"Migrated {len(records)} screenshot mapping(s) to {target_dir / '.manifest.json'}")
+
 def main():
     parser = argparse.ArgumentParser(
         prog="proofshot",
@@ -400,6 +487,10 @@ def main():
     project_ops.add_argument("--set-column-suffix", nargs=2, metavar=("COLUMN", "TEMPLATE"), help="Set one column's suffix template")
     project_ops.add_argument("--set-variable", nargs=2, metavar=("NAME", "VALUE"), help="Set a custom naming variable")
     project_ops.add_argument("--set-index-label", metavar="LABEL", help="Set the index label, such as Q or Fig")
+    project_ops.add_argument("--package", action="store_true",
+                             help="Interactively package selected screenshots into a ZIP file")
+    project_ops.add_argument("--upgrade-project", action="store_true",
+                             help="Upgrade project metadata and migrate legacy screenshot mappings")
     project_ops.add_argument("--add-screenshot", metavar="PATH",
                              help="Copy a PNG screenshot into the current project")
     project_ops.add_argument("--remove-screenshot", metavar="NAME",
@@ -505,7 +596,7 @@ def main():
         "set_prefix", "set_suffix", "set_column_prefix", "set_column_suffix", "set_variable", "set_index_label",
     )
     has_project_operation = any(getattr(args, name) is not None for name in value_operations) \
-        or args.show_config or args.show_columns
+        or args.show_config or args.show_columns or args.package or args.upgrade_project
     if args.dir is None and args.question is None and args.next is None and \
        args.index is None and not args.where and not args.list and not has_project_operation:
         parser.error("pass -D to set a directory, -Q/-N/-I/--init for question/index/init, a project parameter, -W to check, -L to list, or -h for help")
@@ -536,6 +627,12 @@ def main():
     config = load_config(target_dir)
 
     if has_project_operation:
+        if args.upgrade_project:
+            upgrade_project(target_dir, config)
+            return
+        if args.package:
+            package_project(parser, target_dir, config, args.force)
+            return
         try:
             if not config_operation(args, target_dir):
                 manage_project(args, target_dir, config)
@@ -637,6 +734,8 @@ def main():
         target.unlink(missing_ok=True)
         detail = screenshot_service.last_error or "capture was cancelled or returned an empty image"
         sys.exit(f"{load_provider()} capture failed: {detail} — nothing saved.")
+
+    record_screenshot(target_dir, target, question_start, shot_type, question_end)
 
     # Commit index state only after Flameshot has produced a valid screenshot.
     # This keeps cancellation (and other failed captures) side-effect free.

@@ -36,7 +36,7 @@ proofshot --set-column-suffix Evidence '-evidence'
 
 Built-in naming variables are `{directory}`, `{category}`, and `{number}`. Additional variables set with `--set-variable NAME VALUE` can be used in global or column-specific prefix and suffix templates.
 
-Current version: `0.2.5`
+Current version: `0.2.6`
 
 ## Install
 
@@ -216,6 +216,28 @@ proofshot --set-variable environment prod
 ```
 
 `--show-config` prints the complete JSON configuration. `--show-columns` prints the configured column order and effective templates. The index label defaults to `Q`, producing names such as `Q1` and `Q2`; `--set-index-label Fig` changes this to `Fig1`, `Fig2`, and so on. The `-L` table uses the configured label in its index column and current-index summary. Prefix and suffix settings are saved per project and can contain `{directory}`, `{category}`, `{number}`, and `{index_label}`. Variables created with `--set-variable NAME VALUE` can also be used in templates. Unknown variables are left unchanged in generated names.
+
+Each successfully captured screenshot is recorded in the project-root `.manifest.json`. The manifest stores a SHA-256 hash of the image content, its index or range, category, and filename. `-L` uses this content mapping first, so renaming a screenshot does not lose its index/category association; older screenshots without manifest entries continue to use filename matching.
+
+### Upgrading projects
+
+Project configs now record the Proofshot compatibility version. Projects without `proofshot_version` are treated as version `0.2.5` or older and continue using the legacy filename convention for discovery. Upgrade a project with:
+
+```bash
+proofshot --upgrade-project
+```
+
+This adds the current version to `.proofshot.json` and migrates legacy filename-based screenshot mappings into `.manifest.json`. Existing screenshots are not renamed or modified.
+
+### Packaging screenshots
+
+Use `--package` to interactively create `proofshot-package.zip` in the current project:
+
+```bash
+proofshot --package
+```
+
+Enter a column name or zero-based column index, then enter an index range such as `1-5`. Leave the range blank to include every mapped index in that column. Repeat for additional columns, then leave the column prompt blank to finish. Use `--force` to replace an existing package. Packaging uses the manifest mapping, so renamed screenshots are included under their current filenames.
 
 `proofshot --init NAME` creates a project-local `.proofshot.json` from the repository’s `default_config.json` template. Existing config files are never overwritten. Naming and category settings are stored per project in `<project-directory>/.proofshot.json`:
 

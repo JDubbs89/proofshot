@@ -1,17 +1,21 @@
 """Project configuration, counters, and persisted-directory services."""
 
 import json
+import hashlib
 import re
 import sys
 from pathlib import Path
 
 PROJECT_CONFIG_NAME = ".proofshot.json"
+MANIFEST_NAME = ".manifest.json"
 STATE_DIR = Path.home() / ".config" / "proofshot"
 STATE_FILE = STATE_DIR / "last_dir"
 COUNTS_FILE = STATE_DIR / "counts.json"
 PROVIDER_FILE = STATE_DIR / "provider"
 DEFAULT_CONFIG_FILE = Path(__file__).resolve().parent.parent / "default_config.json"
 DEFAULT_CONFIG = {"form_category": "Form", "proof_category": "Proof", "index_label": "Q", "filename_prefix": "{directory}{index_label}", "filename_suffix": "{category}", "categories": {"Form": {"suffix": ""}, "Proof": {"suffix": "{category}"}}}
+CURRENT_PROJECT_VERSION = "0.2.6"
+DEFAULT_CONFIG["proofshot_version"] = CURRENT_PROJECT_VERSION
 
 def expand_template(template: str, config: dict, **values) -> str:
     """Expand built-in and user-defined naming variables."""
@@ -40,6 +44,10 @@ def load_config(project_dir: Path | None = None) -> dict:
         except json.JSONDecodeError:
             print(f"Warning: ignoring invalid config file: {config_file}", file=sys.stderr)
     return config
+
+def project_version(config: dict) -> str:
+    """Return a project's declared version, defaulting legacy files safely."""
+    return config.get("proofshot_version", "0.2.5")
 
 def save_config(project_dir: Path, config: dict):
     (project_dir / PROJECT_CONFIG_NAME).write_text(json.dumps(config, indent=2) + "\n")
@@ -104,6 +112,41 @@ def load_provider() -> str:
 def save_provider(provider: str):
     ensure_state_dir()
     PROVIDER_FILE.write_text(provider.lower() + "\n")
+
+def image_hash(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as image:
+        for chunk in iter(lambda: image.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+def load_manifest(project_dir: Path) -> dict:
+    manifest_file = project_dir / MANIFEST_NAME
+    if not manifest_file.exists():
+        return {"version": 1, "images": {}}
+    try:
+        data = json.loads(manifest_file.read_text())
+        if isinstance(data, dict) and isinstance(data.get("images"), dict):
+            return data
+    except json.JSONDecodeError:
+        pass
+    return {"version": 1, "images": {}}
+
+def save_manifest(project_dir: Path, manifest: dict):
+    (project_dir / MANIFEST_NAME).write_text(json.dumps(manifest, indent=2) + "\n")
+
+def record_screenshot(project_dir: Path, screenshot: Path, index: int, category: str, index_end: int | None = None):
+    manifest = load_manifest(project_dir)
+    images = manifest.setdefault("images", {})
+    filename = screenshot.name
+    for records in images.values():
+        if isinstance(records, list):
+            records[:] = [record for record in records if record.get("filename") != filename]
+    digest = image_hash(screenshot)
+    images.setdefault(digest, []).append({
+        "filename": filename, "index": index, "index_end": index_end or index, "category": category,
+    })
+    save_manifest(project_dir, manifest)
 
 class ConfigEditor:
     """Mutates and displays project-local configuration."""
