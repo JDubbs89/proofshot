@@ -2,7 +2,40 @@
 
 Proofshot is a Linux CLI screenshot organizer for students, penetration testers, and anyone who needs fast screenshot enumeration, tracking, categorization, and naming. It wraps [Flameshot](https://flameshot.org/) and supports numbered captures, ranges, persistent modules, custom categories, and table listings.
 
-Current version: `0.1.20`
+The implementation is split into a CLI interpreter (`proofshot.py`), a project configuration service (`lib/config_service.py`), and a screenshot provider service (`lib/screenshot_service.py`). Flameshot is the default screenshot provider, allowing additional capture backends to be added independently.
+
+Screenshot providers can be swapped persistently:
+
+```bash
+proofshot --list-providers
+proofshot --provider gnome-screenshot --install
+proofshot --provider flameshot
+```
+
+Supported providers are `flameshot` and `gnome-screenshot`. The selected provider is stored in `~/.config/proofshot/provider` and is used for subsequent captures. Provider changes verify that the provider is installed; if it is missing, the change fails and leaves the current provider unchanged. Append `--install` to explicitly install the selected provider through the system package manager:
+
+```bash
+proofshot --provider gnome-screenshot --install
+proofshot --provider flameshot --install
+```
+
+The normal Proofshot installer installs only the default Flameshot dependencies. It does not install `gnome-screenshot` unless you explicitly request it with the provider command.
+
+Project configuration can be inspected and edited from the CLI:
+
+```bash
+proofshot -D ./AcmeWeb --show-config
+proofshot --show-columns
+proofshot --set-prefix 'Lab-{directory}-{project}Q'
+proofshot --set-suffix '-{category}-{environment}'
+proofshot --set-variable project AcmeWeb
+proofshot --set-variable environment prod
+proofshot --set-column-suffix Evidence '-evidence'
+```
+
+Built-in naming variables are `{directory}`, `{category}`, and `{number}`. Additional variables set with `--set-variable NAME VALUE` can be used in global or column-specific prefix and suffix templates.
+
+Current version: `0.2.0`
 
 ## Install
 
@@ -101,6 +134,29 @@ proofshot -L
 
 `-D PATH` sets and persists the destination, `-W` displays it, and `-I NUMBER` sets the selected category's current index. `-N STEP` advances a category counter; add `-S` to capture the complete range from the previous index.
 
+To capture a replacement at an exact index, combine `-N` with `-I`:
+
+```bash
+proofshot -N -I 3       # capture/replace the selected category's Q3 screenshot
+proofshot -P -N -I 3    # capture/replace Proof Q3
+```
+
+The index is committed only after Flameshot successfully saves the image. Cancelling a capture leaves the counter and existing screenshot unchanged. Use `--force` to replace an existing screenshot without the overwrite prompt.
+
+### Project management
+
+Project settings and screenshots can be changed from the command line. These commands use the persisted directory, or the directory supplied with `-D`:
+
+```bash
+proofshot --add-column Finding
+proofshot --rename-column Form Question
+proofshot --remove-column Finding
+proofshot --add-screenshot ~/Pictures/extra.png
+proofshot --remove-screenshot AcmeWebQ3.png
+```
+
+Column changes update `.proofshot.json` and preserve or remove the matching counter. The built-in Form and Proof columns cannot be removed; rename them if needed. Screenshot management accepts PNG files only, and `--force` allows an added screenshot to replace an existing file with the same name.
+
 ### Categories and naming
 
 `Form` and `Proof` remain available for compatibility. `proofshot -N` uses category column `0` by default (the first category column after `Question`, which is `Form`). Use `-C NAME` to create or select categories such as `Evidence` or `Finding`; each gets its own counter. Use `-C 0`, `-C 1`, and so on to select zero-based category columns shown by `-L`. Use `--name PREFIX` to customize the filename prefix:
@@ -141,9 +197,24 @@ proofshot -C Finding -N       # AcmeWebQ8Finding.png
 
 Run `proofshot -L` to see category columns. Numeric categories are zero-based: `-C 0` selects the first category column after `Question`, `-C 1` the second, and so on. Names such as `-C Evidence` can always be used directly.
 
-### Configuration
+### Configuration and naming editor
 
-Counters are stored in `~/.config/proofshot/counts.json`; the selected directory is stored in `~/.config/proofshot/last_dir`.
+Counters are stored in `~/.config/proofshot/counts.json`; the selected directory is stored in `~/.config/proofshot/last_dir`; the selected screenshot provider is stored in `~/.config/proofshot/provider`.
+
+Configuration commands operate on the persisted directory, or on a directory selected with `-D`:
+
+```bash
+proofshot --show-config
+proofshot --show-columns
+proofshot --set-prefix 'Lab-{directory}-{project}Q'
+proofshot --set-suffix '-{category}-{environment}'
+proofshot --set-column-prefix Evidence 'Evidence-{project}-Q'
+proofshot --set-column-suffix Evidence '-evidence'
+proofshot --set-variable project AcmeWeb
+proofshot --set-variable environment prod
+```
+
+`--show-config` prints the complete JSON configuration. `--show-columns` prints the configured column order and effective templates. Prefix and suffix settings are saved per project and can contain the built-in variables `{directory}`, `{category}`, and `{number}`. Variables created with `--set-variable NAME VALUE` can also be used in templates. Unknown variables are left unchanged in generated names.
 
 `proofshot --init NAME` creates a project-local `.proofshot.json` from the repository’s `default_config.json` template. Existing config files are never overwritten. Naming and category settings are stored per project in `<project-directory>/.proofshot.json`:
 
@@ -153,6 +224,10 @@ Counters are stored in `~/.config/proofshot/counts.json`; the selected directory
   "proof_category": "Proof",
   "filename_prefix": "{directory}Q",
   "filename_suffix": "{category}",
+  "variables": {
+    "project": "AcmeWeb",
+    "environment": "prod"
+  },
   "categories": {
     "Form": {
       "suffix": ""
@@ -197,8 +272,8 @@ Declared category columns can also be selected by zero-based number with `-C 2`,
 ## Requirements
 
 - Python 3.10+
-- Flameshot 0.10 or newer, with `flameshot gui --raw`
-- Optional: `zenity` and `notify-send`
+- Flameshot 0.10 or newer, with `flameshot gui --raw`, or `gnome-screenshot`
+- Optional: `zenity` and `notify-send`; `gnome-screenshot` is installed separately with `proofshot --provider gnome-screenshot --install`
 
 Run `proofshot --help` for the complete CLI reference.
 

@@ -48,121 +48,83 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-__version__ = "0.1.20"
+from lib.config_service import (
+    create_project_config, load_config, load_counts, load_state, naming_for_category,
+    reset_indices, resolve_category, save_config, save_counts, save_state,
+    set_index_for_type, update_count_for_type, normalise_category,
+    PROJECT_CONFIG_NAME, STATE_DIR, load_provider, save_provider, config_operation,
+    expand_template,
+)
+from lib.screenshot_service import (
+    add_screenshot, available_providers, get_screenshot_service, remove_screenshot,
+)
 
-STATE_DIR = Path.home() / ".config" / "proofshot"
-STATE_FILE = STATE_DIR / "last_dir"
-COUNTS_FILE = STATE_DIR / "counts.json"
-PROJECT_CONFIG_NAME = ".proofshot.json"
-DEFAULT_CONFIG_FILE = Path(__file__).resolve().parent / "default_config.json"
-DEFAULT_CONFIG = {
-    "form_category": "Form",
-    "proof_category": "Proof",
-    "filename_prefix": "{directory}Q",
-    "filename_suffix": "{category}",
-    "categories": {
-        "Form": {"suffix": ""},
-        "Proof": {"suffix": "{category}"},
-    },
-}
+__version__ = "0.2.0"
+def manage_project(args, target_dir: Path, config: dict) -> bool:
+    """Apply one project-management operation and return whether one was requested."""
+    operation = next((name for name in (
+        "rename_column", "add_column", "remove_column",
+        "add_screenshot", "remove_screenshot"
+    ) if getattr(args, name) is not None), None)
+    if operation is None:
+        return False
 
-def ensure_state_dir():
-    """Create state directory if it doesn't exist."""
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    if operation == "rename_column":
+        old, new = map(normalise_category, args.rename_column)
+        categories = config.setdefault("categories", {})
+        if old not in categories:
+            raise ValueError(f"column does not exist: {old}")
+        if new in categories and new != old:
+            raise ValueError(f"column already exists: {new}")
+        categories[new] = categories.pop(old)
+        if config.get("form_category") == old:
+            config["form_category"] = new
+        if config.get("proof_category") == old:
+            config["proof_category"] = new
+        counts = load_counts()
+        if old in counts:
+            counts[new] = counts.pop(old)
+            save_counts(counts)
+        save_config(target_dir, config)
+        print(f"Renamed column {old} to {new} in {target_dir / PROJECT_CONFIG_NAME}")
+        return True
 
-def create_project_config(project_dir: Path):
-    """Create a project config from the repository default without overwriting one."""
-    config_file = project_dir / PROJECT_CONFIG_NAME
-    if config_file.exists():
-        return
-    if DEFAULT_CONFIG_FILE.exists():
-        config_file.write_text(DEFAULT_CONFIG_FILE.read_text())
-    else:
-        config_file.write_text(json.dumps(DEFAULT_CONFIG, indent=2) + "\n")
+    if operation == "add_column":
+        name = normalise_category(args.add_column)
+        categories = config.setdefault("categories", {})
+        if name in categories:
+            raise ValueError(f"column already exists: {name}")
+        categories[name] = {"suffix": "{category}"}
+        counts = load_counts()
+        counts.setdefault(name, 0)
+        save_counts(counts)
+        save_config(target_dir, config)
+        print(f"Added column {name}")
+        return True
 
-def load_config(project_dir: Path | None = None) -> dict:
-    """Load project-local naming and category settings."""
-    config = DEFAULT_CONFIG.copy()
-    config_file = project_dir / PROJECT_CONFIG_NAME if project_dir else None
-    if config_file and config_file.exists():
-        try:
-            data = json.loads(config_file.read_text())
-            if isinstance(data, dict):
-                for key in config:
-                    if key == "categories" and isinstance(data.get(key), dict):
-                        config[key] = data[key]
-                    elif isinstance(data.get(key), str) and data[key]:
-                        config[key] = data[key]
-        except json.JSONDecodeError:
-            print(f"Warning: ignoring invalid config file: {config_file}", file=sys.stderr)
-    return config
+    if operation == "remove_column":
+        name = normalise_category(args.remove_column)
+        categories = config.setdefault("categories", {})
+        if name not in categories:
+            raise ValueError(f"column does not exist: {name}")
+        if name in (config.get("form_category"), config.get("proof_category")):
+            raise ValueError("cannot remove the Form or Proof column; rename it instead")
+        categories.pop(name)
+        counts = load_counts()
+        counts.pop(name, None)
+        save_counts(counts)
+        save_config(target_dir, config)
+        print(f"Removed column {name}")
+        return True
 
-def naming_for_category(config: dict, category: str) -> tuple[str, str]:
-    """Return the effective prefix and suffix for a category."""
-    category_config = config.get("categories", {}).get(category, {})
-    prefix = category_config.get("prefix", config["filename_prefix"])
-    suffix = category_config.get("suffix", config["filename_suffix"])
-    return prefix, suffix
+    if operation == "add_screenshot":
+        destination = add_screenshot(args.add_screenshot, target_dir, args.force)
+        print(f"Added screenshot {destination.name}")
+        return True
 
-def load_counts() -> dict:
-    """Load last question numbers for every category."""
-    ensure_state_dir()
-    if not COUNTS_FILE.exists():
-        return {"Form": 0, "Proof": 0}
-    try:
-        data = json.loads(COUNTS_FILE.read_text())
-        if not isinstance(data, dict):
-            return {"Form": 0, "Proof": 0}
-        counts = {str(key): int(value) for key, value in data.items()
-                  if isinstance(key, str) and isinstance(value, int) and value >= 0}
-        counts.setdefault("Form", 0)
-        counts.setdefault("Proof", 0)
-        return counts
-    except (json.JSONDecodeError, KeyError):
-        return {"Form": 0, "Proof": 0}
-
-def save_counts(counts: dict):
-    """Save last question numbers for each type."""
-    ensure_state_dir()
-    COUNTS_FILE.write_text(json.dumps(counts, indent=2))
-
-def update_count_for_type(shot_type: str, counts: dict, steps: int) -> int:
-    """Increment and return the new question number for this type."""
-    counts.setdefault(shot_type, 0)
-    counts[shot_type] += steps
-    save_counts(counts)
-    return counts[shot_type]
-
-def set_index_for_type(shot_type: str, index: int):
-    """Set the index for a specific type (Form or Proof)."""
-    counts = load_counts()
-    counts[shot_type] = index
-    save_counts(counts)
-
-def reset_indices(config: dict | None = None):
-    """Reset indices for the categories configured by the project."""
-    config = config or DEFAULT_CONFIG
-    categories = config.get("categories", {})
-    save_counts({str(name): 0 for name in categories} or {
-        config["form_category"]: 0, config["proof_category"]: 0
-    })
-
-def resolve_category(value: str | None, counts: dict, config: dict) -> str:
-    """Resolve a category name or zero-based category column number."""
-    if not value:
-        return config["proof_category"] if counts.get("__proof_flag__") else config["form_category"]
-    if value.isdigit():
-        index = int(value)
-        categories = list(config.get("categories", {}))
-        if not categories:
-            categories = [config["form_category"], config["proof_category"]]
-        if index < 0 or index >= len(categories):
-            raise ValueError(f"category column {index} is out of range (0-{len(categories) - 1})")
-        return categories[index]
-    category = re.sub(r"[^A-Za-z0-9_-]+", "_", value).strip("_")
-    if not category:
-        raise ValueError("category must contain at least one letter or number")
-    return category
+    screenshot = remove_screenshot(args.remove_screenshot, target_dir)
+    print(f"Removed screenshot {screenshot.name}")
+    return True
 
 def zenity_choice_form_or_proof() -> str:
     """Present zenity dialog to choose Form or Proof type."""
@@ -213,24 +175,6 @@ def zenity_confirm_init(dir_path: Path) -> bool:
             sys.exit("Aborted.")
     return True
 
-def save_state(target_dir: Path):
-    """Persist the target directory for future sessions."""
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(str(target_dir))
-
-def load_state() -> Path:
-    """Load the persisted target directory."""
-    if not STATE_FILE.exists():
-        sys.exit(
-            "No directory set yet. Run `proofshot -D <path>` first, "
-            "or pass -D directly with -Q/-N."
-        )
-    saved = Path(STATE_FILE.read_text().strip())
-    if not saved.is_dir():
-        sys.exit(f"Saved directory no longer exists: {saved}\n"
-                  f"Run `proofshot -D <path>` to set a new one.")
-    return saved
-
 def display_path(path: Path) -> str:
     """Collapse the home dir to ~ for display, matching the box's convention."""
     home = Path.home()
@@ -270,10 +214,8 @@ def _filename_pattern(config: dict, category: str, directory: str) -> re.Pattern
     directory_token = "__PROOFSHOT_DIRECTORY__"
     category_token = "__PROOFSHOT_CATEGORY__"
     number_token = "__PROOFSHOT_NUMBER__"
-    template = prefix.replace("{directory}", directory_token).replace(
-        "{category}", category_token
-    ) + number_token + suffix.replace(
-        "{directory}", directory_token).replace("{category}", category_token)
+    template = expand_template(prefix, config, directory=directory_token, category=category_token, number=number_token)
+    template += expand_template(suffix, config, directory=directory_token, category=category_token, number=number_token)
     template = re.escape(template).replace(re.escape(directory_token), re.escape(directory))
     template = template.replace(re.escape(category_token), re.escape(category))
     template = template.replace(re.escape(number_token), r"(?P<start>\d+)(?:-(?P<end>\d+))?")
@@ -353,35 +295,6 @@ def print_index_table(target_dir: Path):
     counts = load_counts()
     print("\nCurrent Index: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
 
-def check_dependencies():
-    """Verify required dependencies are installed."""
-    missing = []
-    if subprocess.run(["which", "flameshot"], capture_output=True).returncode != 0:
-        missing.append("flameshot")
-    
-    if not missing:
-        return True
-    
-    sys.exit(f"Missing dependencies: {', '.join(missing)}. Install them to use proofshot.")
-
-def capture_screenshot(target: Path):
-    """Capture a screenshot using flameshot and save to target path."""
-    with open(target, "wb") as f:
-        # Suppress QPainter warnings by redirecting stderr
-        result = subprocess.run(
-            ["flameshot", "gui", "--raw"],
-            stdout=f,
-            stderr=subprocess.DEVNULL
-        )
-    
-    return result.returncode == 0 and target.stat().st_size >= 100
-
-def send_notification(target: Path):
-    """Send desktop notification if notify-send is available."""
-    if subprocess.run(["which", "notify-send"], capture_output=True).returncode == 0:
-        subprocess.run(["notify-send", "Screenshot Saved", str(target)],
-                       stderr=subprocess.DEVNULL)
-
 def uninstall_command():
     """Remove the installed executable without deleting saved settings."""
     executable = Path(sys.argv[0]).resolve()
@@ -436,6 +349,12 @@ def main():
                         help="Remove the installed proofshot command (keeps saved settings)")
     parser.add_argument("--update", action="store_true",
                         help="Download and install the latest GitHub release")
+    parser.add_argument("--provider", metavar="NAME",
+                        help="Set the screenshot provider (flameshot or gnome-screenshot)")
+    parser.add_argument("--install", action="store_true",
+                        help="Install dependencies for the selected screenshot provider")
+    parser.add_argument("--list-providers", action="store_true",
+                        help="List available screenshot providers")
 
     group_questions = parser.add_argument_group('Question Parameters')
     group_questions.add_argument("-Q", "--question", metavar="NUM",
@@ -452,6 +371,28 @@ def main():
                                  help="Custom filename prefix instead of the destination folder name")
     group_questions.add_argument("--init", metavar="NAME",
                                  help="Create new folder with this name, reset indices to 0, and persist")
+
+    group_project = parser.add_argument_group('Project Parameters')
+    project_ops = group_project.add_mutually_exclusive_group()
+    project_ops.add_argument("--rename-column", nargs=2, metavar=("OLD", "NEW"),
+                             help="Rename a project category column and preserve its counter")
+    project_ops.add_argument("--add-column", metavar="NAME",
+                             help="Add a project category column")
+    project_ops.add_argument("--remove-column", metavar="NAME",
+                             help="Remove a project category column")
+    project_ops.add_argument("--show-config", action="store_true",
+                             help="Show the current project configuration as JSON")
+    project_ops.add_argument("--show-columns", action="store_true",
+                             help="Show configured columns and naming templates")
+    project_ops.add_argument("--set-prefix", metavar="TEMPLATE", help="Set the global filename prefix template")
+    project_ops.add_argument("--set-suffix", metavar="TEMPLATE", help="Set the global filename suffix template")
+    project_ops.add_argument("--set-column-prefix", nargs=2, metavar=("COLUMN", "TEMPLATE"), help="Set one column's prefix template")
+    project_ops.add_argument("--set-column-suffix", nargs=2, metavar=("COLUMN", "TEMPLATE"), help="Set one column's suffix template")
+    project_ops.add_argument("--set-variable", nargs=2, metavar=("NAME", "VALUE"), help="Set a custom naming variable")
+    project_ops.add_argument("--add-screenshot", metavar="PATH",
+                             help="Copy a PNG screenshot into the current project")
+    project_ops.add_argument("--remove-screenshot", metavar="NAME",
+                             help="Remove a PNG screenshot from the current project")
 
     group_directory = parser.add_argument_group('Directory Parameters')
     group_directory.add_argument("-D", "--dir", metavar="PATH",
@@ -480,6 +421,31 @@ def main():
         uninstall_command()
     if args.update:
         update_command()
+
+    if args.list_providers:
+        current = load_provider()
+        for provider in available_providers():
+            marker = " (current)" if provider == current else ""
+            print(f"{provider}{marker}")
+        return
+
+    if args.provider:
+        try:
+            provider_service = get_screenshot_service(args.provider)
+        except ValueError as exc:
+            parser.error(str(exc))
+        if args.install:
+            provider_service.install_dependencies()
+        try:
+            provider_service.check_dependencies()
+        except SystemExit:
+            parser.error(f"{args.provider} is not installed; rerun with --provider {args.provider} --install")
+        save_provider(args.provider)
+        print(f"Screenshot provider set to: {args.provider.lower()}")
+        return
+
+    if args.install:
+        parser.error("--install must be used with --provider NAME")
 
     # Resolve -P shortcut into --proof flag
     if args.proof_shortcut:
@@ -523,9 +489,13 @@ def main():
         ])
         return
 
+    has_project_operation = any(getattr(args, name) is not None for name in (
+        "rename_column", "add_column", "remove_column", "add_screenshot", "remove_screenshot",
+        "show_config", "show_columns", "set_prefix", "set_suffix", "set_column_prefix",
+        "set_column_suffix", "set_variable"))
     if args.dir is None and args.question is None and args.next is None and \
-       args.index is None and not args.where and not args.list:
-        parser.error("pass -D to set a directory, -Q/-N/-I/--init for question/index/init, -W to check, -L to list, or -h for help")
+       args.index is None and not args.where and not args.list and not has_project_operation:
+        parser.error("pass -D to set a directory, -Q/-N/-I/--init for question/index/init, a project parameter, -W to check, -L to list, or -h for help")
 
     # Load or set target directory
     if args.dir is not None:
@@ -552,6 +522,14 @@ def main():
         target_dir = load_state()
     config = load_config(target_dir)
 
+    if has_project_operation:
+        try:
+            if not config_operation(args, target_dir):
+                manage_project(args, target_dir, config)
+        except ValueError as exc:
+            parser.error(str(exc))
+        return
+
     # Resolve category for index/capture operations. -P remains a Proof alias.
     counts = load_counts()
     for category in config.get("categories", {}):
@@ -565,8 +543,9 @@ def main():
     counts.pop("__proof_flag__", None)
     counts.setdefault(shot_type, 0)
 
-    # Handle -I (index) flag
-    if args.index is not None:
+    # Handle -I (index) flag when it is used by itself. With -N, -I means
+    # capture at that exact index and commit it only after a successful capture.
+    if args.index is not None and args.next is None:
         set_index_for_type(shot_type, args.index)
         print_box("PROOFSHOT: Index Set",
                   [f"Index for {shot_type}: Q{args.index}",
@@ -582,7 +561,8 @@ def main():
         return
 
     # Check dependencies early
-    check_dependencies()
+    screenshot_service = get_screenshot_service(load_provider())
+    screenshot_service.check_dependencies()
 
     # Default to Form, only use Proof with explicit -P/-p
     # Category was resolved above; explicit -f keeps the traditional Form name.
@@ -599,7 +579,12 @@ def main():
         last_q = counts[shot_type]
         step = args.next  # default 1 if passed as -N, or custom if -N 2
 
-        if args.span:
+        if args.index is not None:
+            if args.span:
+                parser.error("-I cannot be combined with -S")
+            question_start = args.index
+            question_end = args.index
+        elif args.span:
             # Span mode: include all questions from last+1 to last+step
             question_start = last_q + 1
             question_end = last_q + step
@@ -614,20 +599,13 @@ def main():
     # Build the question string for the filename
     question_str = build_question_string(question_start, question_end)
 
-    # Update the count AFTER determining what we're capturing
-    if args.span and args.next:
-        steps = question_end - question_start + 1
-    else:
-        steps = args.next if args.next else 1
-    update_count_for_type(shot_type, load_counts(), steps)
-
     # Filename construction
     prefix, suffix = naming_for_category(config, shot_type)
     prefix = args.name or prefix
-    prefix = prefix.replace("{directory}", target_dir.name).replace("{category}", shot_type)
+    prefix = expand_template(prefix, config, directory=target_dir.name, category=shot_type, number=question_str)
     if shot_type == config["form_category"] and shot_type not in config.get("categories", {}):
         suffix = ""
-    suffix = suffix.replace("{directory}", target_dir.name).replace("{category}", shot_type)
+    suffix = expand_template(suffix, config, directory=target_dir.name, category=shot_type, number=question_str)
     base_name = f"{prefix}{question_str}{suffix}"
     target = target_dir / f"{base_name}.png"
 
@@ -637,13 +615,24 @@ def main():
 
     # Capture screenshot
     print(f"\nLaunching Flameshot. Select the region to capture...\n")
-    success = capture_screenshot(target)
+    success = screenshot_service.capture(target)
 
     if not success:
         target.unlink(missing_ok=True)
         sys.exit("Capture cancelled or empty — nothing saved.")
 
-    send_notification(target)
+    # Commit index state only after Flameshot has produced a valid screenshot.
+    # This keeps cancellation (and other failed captures) side-effect free.
+    if args.index is not None and args.next is not None:
+        set_index_for_type(shot_type, args.index)
+    else:
+        if args.span and args.next:
+            steps = question_end - question_start + 1
+        else:
+            steps = args.next if args.next else 1
+        update_count_for_type(shot_type, load_counts(), steps)
+
+    screenshot_service.notify(target)
 
     if not args.quiet:
         print_box("PROOFSHOT: New Screenshot Catalogued", [
