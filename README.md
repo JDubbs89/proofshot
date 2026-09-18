@@ -36,7 +36,7 @@ proofshot --set-column-suffix Evidence '-evidence'
 
 Built-in naming variables are `{directory}`, `{category}`, and `{number}`. Additional variables set with `--set-variable NAME VALUE` can be used in global or column-specific prefix and suffix templates.
 
-Current version: `0.2.4`
+Current version: `0.2.5`
 
 ## Install
 
@@ -215,7 +215,7 @@ proofshot --set-variable project AcmeWeb
 proofshot --set-variable environment prod
 ```
 
-`--show-config` prints the complete JSON configuration. `--show-columns` prints the configured column order and effective templates. The index label defaults to `Q`, producing names such as `Q1` and `Q2`; `--set-index-label Fig` changes this to `Fig1`, `Fig2`, and so on. Prefix and suffix settings are saved per project and can contain `{directory}`, `{category}`, `{number}`, and `{index_label}`. Variables created with `--set-variable NAME VALUE` can also be used in templates. Unknown variables are left unchanged in generated names.
+`--show-config` prints the complete JSON configuration. `--show-columns` prints the configured column order and effective templates. The index label defaults to `Q`, producing names such as `Q1` and `Q2`; `--set-index-label Fig` changes this to `Fig1`, `Fig2`, and so on. The `-L` table uses the configured label in its index column and current-index summary. Prefix and suffix settings are saved per project and can contain `{directory}`, `{category}`, `{number}`, and `{index_label}`. Variables created with `--set-variable NAME VALUE` can also be used in templates. Unknown variables are left unchanged in generated names.
 
 `proofshot --init NAME` creates a project-local `.proofshot.json` from the repository’s `default_config.json` template. Existing config files are never overwritten. Naming and category settings are stored per project in `<project-directory>/.proofshot.json`:
 

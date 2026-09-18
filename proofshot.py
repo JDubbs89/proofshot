@@ -60,7 +60,7 @@ from lib.screenshot_service import (
     add_screenshot, available_providers, get_screenshot_service, remove_screenshot,
 )
 
-__version__ = "0.2.4"
+__version__ = "0.2.5"
 def manage_project(args, target_dir: Path, config: dict) -> bool:
     """Apply one project-management operation and return whether one was requested."""
     operation = next((name for name in (
@@ -257,7 +257,9 @@ def extract_question_files(target_dir: Path, config: dict | None = None) -> dict
 
 def print_index_table(target_dir: Path):
     """Print a table of all question indices with their associated files."""
-    mapping = extract_question_files(target_dir, load_config(target_dir))
+    config = load_config(target_dir)
+    index_label = config.get("index_label", "Q")
+    mapping = extract_question_files(target_dir, config)
     
     if not mapping:
         print_box("INDEX LISTING", [
@@ -270,7 +272,7 @@ def print_index_table(target_dir: Path):
     questions = sorted(mapping.keys())
     
     # Calculate column widths
-    q_width = max(len(str(max(questions))), 4)
+    q_width = max(len(index_label) + len(str(max(questions))), len("Index"), 4)
     categories = sorted({category for row in mapping.values() for category in row})
     widths = {category: max(5, max(len(', '.join(mapping[q].get(category, [])))
                              if mapping[q].get(category) else 5 for q in questions))
@@ -282,7 +284,7 @@ def print_index_table(target_dir: Path):
     separator = "+" + "-" * (q_width + 2) + "+" + "+".join("-" * (widths[c] + 2) for c in categories) + "+"
     
     print(border_top)
-    print("| " + f"{'Question':^{q_width}} | " + " | ".join(f"{c:^{widths[c]}}" for c in categories) + " |")
+    print("| " + f"{'Index':^{q_width}} | " + " | ".join(f"{c:^{widths[c]}}" for c in categories) + " |")
     print(separator)
     
     # Print each row
@@ -291,13 +293,13 @@ def print_index_table(target_dir: Path):
         for category in categories:
             files = ', '.join(sorted(mapping[q_num].get(category, []))) or '(none)'
             cells.append(f"{files:^{widths[category]}}")
-        print("| " + f"{q_num:^{q_width}} | " + " | ".join(cells) + " |")
+        print("| " + f"{index_label + str(q_num):^{q_width}} | " + " | ".join(cells) + " |")
     
     print(border_top)
     
     # Print current indices
     counts = load_counts()
-    print("\nCurrent Index: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
+    print("\nCurrent Index: " + ", ".join(f"{k}={index_label}{v}" for k, v in counts.items()))
 
 def uninstall_command():
     """Remove the installed executable without deleting saved settings."""
@@ -493,8 +495,8 @@ def main():
             f"Config: {PROJECT_CONFIG_NAME}",
             "Form Index: 0",
             "Proof Index: 0",
-            "Next -N will create: Q1.png",
-            "Next -P -N will create: Q1Proof.png"
+            f"Next -N will create: {load_config(target_dir).get('index_label', 'Q')}1.png",
+            f"Next -P -N will create: {load_config(target_dir).get('index_label', 'Q')}1Proof.png"
         ])
         return
 
@@ -559,8 +561,8 @@ def main():
     if args.index is not None and args.next is None:
         set_index_for_type(shot_type, args.index)
         print_box("PROOFSHOT: Index Set",
-                  [f"Index for {shot_type}: Q{args.index}",
-                   f"Next -N will produce: Q{args.index + 1}"])
+                  [f"Index for {shot_type}: {config.get('index_label', 'Q')}{args.index}",
+                   f"Next -N will produce: {config.get('index_label', 'Q')}{args.index + 1}"])
         return
 
     if args.question is None and args.next is None:
@@ -651,7 +653,7 @@ def main():
 
     if not args.quiet:
         print_box("PROOFSHOT: New Screenshot Catalogued", [
-            f"Question: Q{question_str}",
+            f"Index: {index_label}{question_str}",
             f"Type: {shot_type}",
             f"Filename: {base_name}.png",
             f"Destination: {display_path(target_dir)}"
