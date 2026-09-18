@@ -35,7 +35,7 @@ proofshot --set-column-suffix Evidence '-evidence'
 
 Built-in naming variables are `{directory}`, `{category}`, and `{number}`. Additional variables set with `--set-variable NAME VALUE` can be used in global or column-specific prefix and suffix templates.
 
-Current version: `0.2.0`
+Current version: `0.2.1`
 
 ## Install
 
