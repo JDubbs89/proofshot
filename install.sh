@@ -36,5 +36,7 @@ if git -C "$repo_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   git -C "$repo_dir" pull --ff-only
 fi
 install -m 0755 "$repo_dir/proofshot.py" "$bin_dir/proofshot"
+rm -rf "$bin_dir/lib"
+cp -R "$repo_dir/lib" "$bin_dir/lib"
 printf 'Installed proofshot to %s/proofshot\n' "$bin_dir"
 printf 'Ensure %s is on PATH.\n' "$bin_dir"

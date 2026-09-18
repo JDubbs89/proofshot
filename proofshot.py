@@ -41,6 +41,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -299,10 +300,13 @@ def uninstall_command():
     """Remove the installed executable without deleting saved settings."""
     executable = Path(sys.argv[0]).resolve()
     source_file = Path(__file__).resolve()
-    if executable == source_file or executable.suffix == ".py":
+    if executable.suffix == ".py":
         sys.exit("Refusing to remove the source file. Run the installed `proofshot --uninstall` command.")
     if executable.exists():
         executable.unlink()
+        installed_lib = executable.parent / "lib"
+        if installed_lib.is_dir() and (installed_lib / "config_service.py").exists():
+            shutil.rmtree(installed_lib)
         print(f"Removed {executable}")
     else:
         print("proofshot is not installed at the requested path.")
@@ -323,6 +327,7 @@ def update_command():
         result = subprocess.run(["bash", script.name])
     if result.returncode != 0:
         sys.exit(result.returncode)
+    sys.exit(0)
 
 def main():
     parser = argparse.ArgumentParser(
