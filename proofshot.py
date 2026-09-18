@@ -60,7 +60,7 @@ from lib.screenshot_service import (
     add_screenshot, available_providers, get_screenshot_service, remove_screenshot,
 )
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 def manage_project(args, target_dir: Path, config: dict) -> bool:
     """Apply one project-management operation and return whether one was requested."""
     operation = next((name for name in (
@@ -494,10 +494,12 @@ def main():
         ])
         return
 
-    has_project_operation = any(getattr(args, name) is not None for name in (
+    value_operations = (
         "rename_column", "add_column", "remove_column", "add_screenshot", "remove_screenshot",
-        "show_config", "show_columns", "set_prefix", "set_suffix", "set_column_prefix",
-        "set_column_suffix", "set_variable"))
+        "set_prefix", "set_suffix", "set_column_prefix", "set_column_suffix", "set_variable",
+    )
+    has_project_operation = any(getattr(args, name) is not None for name in value_operations) \
+        or args.show_config or args.show_columns
     if args.dir is None and args.question is None and args.next is None and \
        args.index is None and not args.where and not args.list and not has_project_operation:
         parser.error("pass -D to set a directory, -Q/-N/-I/--init for question/index/init, a project parameter, -W to check, -L to list, or -h for help")
