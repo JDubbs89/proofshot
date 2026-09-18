@@ -11,7 +11,7 @@ STATE_FILE = STATE_DIR / "last_dir"
 COUNTS_FILE = STATE_DIR / "counts.json"
 PROVIDER_FILE = STATE_DIR / "provider"
 DEFAULT_CONFIG_FILE = Path(__file__).resolve().parent.parent / "default_config.json"
-DEFAULT_CONFIG = {"form_category": "Form", "proof_category": "Proof", "filename_prefix": "{directory}Q", "filename_suffix": "{category}", "categories": {"Form": {"suffix": ""}, "Proof": {"suffix": "{category}"}}}
+DEFAULT_CONFIG = {"form_category": "Form", "proof_category": "Proof", "index_label": "Q", "filename_prefix": "{directory}{index_label}", "filename_suffix": "{category}", "categories": {"Form": {"suffix": ""}, "Proof": {"suffix": "{category}"}}}
 
 def expand_template(template: str, config: dict, **values) -> str:
     """Expand built-in and user-defined naming variables."""
@@ -166,6 +166,14 @@ class ConfigEditor:
         self.config.setdefault("variables", {})[name] = value
         self.save()
 
+    def set_index_label(self, label: str):
+        label = re.sub(r"[^A-Za-z0-9_-]+", "_", label).strip("_")
+        if not label: raise ValueError("index label must contain at least one letter or number")
+        self.config["index_label"] = label
+        if self.config.get("filename_prefix") in ("{directory}Q", "{directory}{index_label}"):
+            self.config["filename_prefix"] = "{directory}{index_label}"
+        self.save()
+
 def config_operation(args, project_dir: Path) -> bool:
     editor = ConfigEditor(project_dir)
     if args.show_config: editor.show(); return True
@@ -178,4 +186,5 @@ def config_operation(args, project_dir: Path) -> bool:
     if args.set_column_prefix: editor.set_template("prefix", args.set_column_prefix[1], args.set_column_prefix[0]); return True
     if args.set_column_suffix: editor.set_template("suffix", args.set_column_suffix[1], args.set_column_suffix[0]); return True
     if args.set_variable: editor.set_variable(*args.set_variable); print(f"Set variable {args.set_variable[0]}"); return True
+    if args.set_index_label: editor.set_index_label(args.set_index_label); print(f"Set index label to {args.set_index_label}"); return True
     return False

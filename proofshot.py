@@ -60,7 +60,7 @@ from lib.screenshot_service import (
     add_screenshot, available_providers, get_screenshot_service, remove_screenshot,
 )
 
-__version__ = "0.2.3"
+__version__ = "0.2.4"
 def manage_project(args, target_dir: Path, config: dict) -> bool:
     """Apply one project-management operation and return whether one was requested."""
     operation = next((name for name in (
@@ -215,8 +215,11 @@ def _filename_pattern(config: dict, category: str, directory: str) -> re.Pattern
     directory_token = "__PROOFSHOT_DIRECTORY__"
     category_token = "__PROOFSHOT_CATEGORY__"
     number_token = "__PROOFSHOT_NUMBER__"
-    template = expand_template(prefix, config, directory=directory_token, category=category_token, number=number_token)
-    template += expand_template(suffix, config, directory=directory_token, category=category_token, number=number_token)
+    template = expand_template(prefix, config, directory=directory_token, category=category_token,
+                               number=number_token, index_label=config.get("index_label", "Q"))
+    template += number_token
+    template += expand_template(suffix, config, directory=directory_token, category=category_token,
+                                number=number_token, index_label=config.get("index_label", "Q"))
     template = re.escape(template).replace(re.escape(directory_token), re.escape(directory))
     template = template.replace(re.escape(category_token), re.escape(category))
     template = template.replace(re.escape(number_token), r"(?P<start>\d+)(?:-(?P<end>\d+))?")
@@ -394,6 +397,7 @@ def main():
     project_ops.add_argument("--set-column-prefix", nargs=2, metavar=("COLUMN", "TEMPLATE"), help="Set one column's prefix template")
     project_ops.add_argument("--set-column-suffix", nargs=2, metavar=("COLUMN", "TEMPLATE"), help="Set one column's suffix template")
     project_ops.add_argument("--set-variable", nargs=2, metavar=("NAME", "VALUE"), help="Set a custom naming variable")
+    project_ops.add_argument("--set-index-label", metavar="LABEL", help="Set the index label, such as Q or Fig")
     project_ops.add_argument("--add-screenshot", metavar="PATH",
                              help="Copy a PNG screenshot into the current project")
     project_ops.add_argument("--remove-screenshot", metavar="NAME",
@@ -496,7 +500,7 @@ def main():
 
     value_operations = (
         "rename_column", "add_column", "remove_column", "add_screenshot", "remove_screenshot",
-        "set_prefix", "set_suffix", "set_column_prefix", "set_column_suffix", "set_variable",
+        "set_prefix", "set_suffix", "set_column_prefix", "set_column_suffix", "set_variable", "set_index_label",
     )
     has_project_operation = any(getattr(args, name) is not None for name in value_operations) \
         or args.show_config or args.show_columns
@@ -609,10 +613,13 @@ def main():
     # Filename construction
     prefix, suffix = naming_for_category(config, shot_type)
     prefix = args.name or prefix
-    prefix = expand_template(prefix, config, directory=target_dir.name, category=shot_type, number=question_str)
+    index_label = config.get("index_label", "Q")
+    prefix = expand_template(prefix, config, directory=target_dir.name, category=shot_type,
+                             number=question_str, index_label=index_label)
     if shot_type == config["form_category"] and shot_type not in config.get("categories", {}):
         suffix = ""
-    suffix = expand_template(suffix, config, directory=target_dir.name, category=shot_type, number=question_str)
+    suffix = expand_template(suffix, config, directory=target_dir.name, category=shot_type,
+                             number=question_str, index_label=index_label)
     base_name = f"{prefix}{question_str}{suffix}"
     target = target_dir / f"{base_name}.png"
 
