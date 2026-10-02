@@ -164,7 +164,8 @@ Global state is stored in `~/.config/proofshot/`:
 
 The code is organized as:
 
-- `proofshot.py` — CLI interpreter and orchestration
+- `proofshot.py` — screenshot workflow orchestration
+- `lib/cli_service.py` — CLI argument definitions, operation registration, and combination validation
 - `lib/config_service.py` — configuration, counters, manifests, and upgrades
 - `lib/screenshot_service.py` — provider interface and implementations
 - `lib/package_service.py` — ZIP packaging

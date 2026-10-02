@@ -37,7 +37,6 @@ Quick Reference:
     --force      Skip overwrite confirmation
 """
 
-import argparse
 import json
 import os
 import re
@@ -61,6 +60,7 @@ from lib.screenshot_service import (
     add_screenshot, available_providers, get_screenshot_service, remove_screenshot,
 )
 from lib.package_service import package_images
+from lib.cli_service import CLIService
 
 __version__ = "0.2.6"
 def manage_project(args, target_dir: Path, config: dict) -> bool:
@@ -422,102 +422,9 @@ def upgrade_project(target_dir: Path, config: dict):
     print(f"Migrated {len(records)} screenshot mapping(s) to {target_dir / '.manifest.json'}")
 
 def main():
-    parser = argparse.ArgumentParser(
-        prog="proofshot",
-        description="Capture screenshots with automatic question numbering and proof tracking.",
-        epilog="""Examples:
-  proofshot -D ~/HTB/module         Set working directory
-  proofshot -Q 5                    Capture question 5 (FORM default)
-  proofshot -Q 5-7 --proof          Capture questions 5-7 as proof
-  proofshot -P                      Shortcut for --proof
-  proofshot -N                      Auto-increment by 1 (FORM: e.g., last=5 → Q6)
-  proofshot -N 2                    Auto-increment by 2 (FORM: e.g., last=5 → Q7)
-  proofshot -N 2 -S                 Span increment (FORM: e.g., last=5 → Q6-7)
-  proofshot -P -N                   Auto-increment PROOF (requires -P)
-  proofshot -I 4                    Set FORM index to 4 [DEFAULT TYPE]
-  proofshot -P -I 4                 Set PROOF index to 4
-  proofshot --init ModuleName       Create folder, reset indices, persist
-  proofshot -L                      List all indexed questions
-  proofshot -W                      Show current directory""",
-        formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    parser.add_argument("--uninstall", action="store_true",
-                        help="Remove the installed proofshot command (keeps saved settings)")
-    parser.add_argument("--update", action="store_true",
-                        help="Download and install the latest GitHub release")
-    parser.add_argument("--provider", metavar="NAME",
-                        help="Set the screenshot provider (flameshot or gnome-screenshot)")
-    parser.add_argument("--install", action="store_true",
-                        help="Install dependencies for the selected screenshot provider")
-    parser.add_argument("--list-providers", action="store_true",
-                        help="List available screenshot providers")
-
-    group_questions = parser.add_argument_group('Question Parameters')
-    group_questions.add_argument("-Q", "--question", metavar="NUM",
-                                 help="Specify question number directly (e.g., '5' or '5-7')")
-    group_questions.add_argument("-N", "--next", nargs="?", const=1, type=int, metavar="STEP",
-                                 help="Auto-increment from last question (default: 1 step) [FORM unless -P]")
-    group_questions.add_argument("-S", "--span", action="store_true",
-                                 help="Include all questions in span when used with -N (e.g., -N 2 -S → Q3-4)")
-    group_questions.add_argument("-I", "--index", type=int, metavar="NUMBER",
-                                 help="Manually set the current index for the selected category")
-    group_questions.add_argument("-C", "--category", metavar="NAME_OR_COLUMN",
-                                 help="Category name (or zero-based listing column; column 0 is the default)")
-    group_questions.add_argument("--name", metavar="PREFIX",
-                                 help="Custom filename prefix instead of the destination folder name")
-    group_questions.add_argument("--init", metavar="NAME",
-                                 help="Create new folder with this name, reset indices to 0, and persist")
-
-    group_project = parser.add_argument_group('Project Parameters')
-    project_ops = group_project.add_mutually_exclusive_group()
-    project_ops.add_argument("--rename-column", nargs=2, metavar=("OLD", "NEW"),
-                             help="Rename a project category column and preserve its counter")
-    project_ops.add_argument("--add-column", metavar="NAME",
-                             help="Add a project category column")
-    project_ops.add_argument("--remove-column", metavar="NAME",
-                             help="Remove a project category column")
-    project_ops.add_argument("--show-config", action="store_true",
-                             help="Show the current project configuration as JSON")
-    project_ops.add_argument("--show-columns", action="store_true",
-                             help="Show configured columns and naming templates")
-    project_ops.add_argument("--set-prefix", metavar="TEMPLATE", help="Set the global filename prefix template")
-    project_ops.add_argument("--set-suffix", metavar="TEMPLATE", help="Set the global filename suffix template")
-    project_ops.add_argument("--set-column-prefix", nargs=2, metavar=("COLUMN", "TEMPLATE"), help="Set one column's prefix template")
-    project_ops.add_argument("--set-column-suffix", nargs=2, metavar=("COLUMN", "TEMPLATE"), help="Set one column's suffix template")
-    project_ops.add_argument("--set-variable", nargs=2, metavar=("NAME", "VALUE"), help="Set a custom naming variable")
-    project_ops.add_argument("--set-index-label", metavar="LABEL", help="Set the index label, such as Q or Fig")
-    project_ops.add_argument("--package", action="store_true",
-                             help="Interactively package selected screenshots into a ZIP file")
-    project_ops.add_argument("--upgrade-project", action="store_true",
-                             help="Upgrade project metadata and migrate legacy screenshot mappings")
-    project_ops.add_argument("--add-screenshot", metavar="PATH",
-                             help="Copy a PNG screenshot into the current project")
-    project_ops.add_argument("--remove-screenshot", metavar="NAME",
-                             help="Remove a PNG screenshot from the current project")
-
-    group_directory = parser.add_argument_group('Directory Parameters')
-    group_directory.add_argument("-D", "--dir", metavar="PATH",
-                                 help="Set the working directory (persists across sessions)")
-    group_directory.add_argument("-W", "--where", action="store_true",
-                                 help="Show the current persisted directory")
-    group_directory.add_argument("-L", "--list", action="store_true",
-                                 help="List all indexed questions with filenames in table format")
-
-    group_type = parser.add_mutually_exclusive_group()
-    group_type.add_argument("-p", "--proof", action="store_true",
-                            help="Enable Proof mode (adds 'Proof' suffix to filename)")
-    group_type.add_argument("-P", action="store_true", dest="proof_shortcut",
-                            help="Short form of --proof (-P instead of --proof)")
-    group_type.add_argument("-f", "--form", action="store_true",
-                            help="Explicit Form mode (default behavior)")
-
-    parser.add_argument("--force", action="store_true",
-                        help="Overwrite existing file without confirmation")
-    parser.add_argument("--quiet", action="store_true",
-                        help="Suppress the final confirmation box")
-
-    args = parser.parse_args()
+    cli = CLIService(__version__)
+    parser = cli.parser
+    args = cli.parse_args()
 
     if args.uninstall:
         uninstall_command()
@@ -591,12 +498,7 @@ def main():
         ])
         return
 
-    value_operations = (
-        "rename_column", "add_column", "remove_column", "add_screenshot", "remove_screenshot",
-        "set_prefix", "set_suffix", "set_column_prefix", "set_column_suffix", "set_variable", "set_index_label",
-    )
-    has_project_operation = any(getattr(args, name) is not None for name in value_operations) \
-        or args.show_config or args.show_columns or args.package or args.upgrade_project
+    has_project_operation = cli.has_project_operation(args)
     if args.dir is None and args.question is None and args.next is None and \
        args.index is None and not args.where and not args.list and not has_project_operation:
         parser.error("pass -D to set a directory, -Q/-N/-I/--init for question/index/init, a project parameter, -W to check, -L to list, or -h for help")
