@@ -33,6 +33,7 @@ Quick Reference:
     -P           Trigger Proof mode (appends "Proof" to filename/index)
     -f           Explicitly specify Form mode (no "Proof" suffix)
     -L           List all indexed questions with filenames (always uses persisted dir)
+    -V NUMBER    Open the image at an index in the default image viewer
     -W           Show current directory
     --force      Skip overwrite confirmation
 """
@@ -62,7 +63,7 @@ from lib.screenshot_service import (
 from lib.package_service import package_images
 from lib.cli_service import CLIService
 
-__version__ = "0.2.6"
+__version__ = "0.2.7"
 def manage_project(args, target_dir: Path, config: dict) -> bool:
     """Apply one project-management operation and return whether one was requested."""
     operation = next((name for name in (
@@ -328,6 +329,24 @@ def print_index_table(target_dir: Path):
     counts = load_counts()
     print("\nCurrent Index: " + ", ".join(f"{k}={index_label}{v}" for k, v in counts.items()))
 
+def view_index(target_dir: Path, index: int):
+    """Open the first image associated with an index in the default viewer."""
+    mapping = extract_question_files(target_dir)
+    files = sorted({name for category_files in mapping.get(index, {}).values()
+                    for name in category_files})
+    if not files:
+        sys.exit(f"No screenshot found at index {index} in {target_dir}")
+
+    image = target_dir / files[0]
+    if shutil.which("xdg-open") is None:
+        sys.exit("The default image viewer command (xdg-open) is not available")
+    try:
+        subprocess.Popen(["xdg-open", str(image)],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError as exc:
+        sys.exit(f"Unable to open {image}: {exc}")
+    print(f"Opening {image}")
+
 def uninstall_command():
     """Remove the installed executable without deleting saved settings."""
     executable = Path(sys.argv[0]).resolve()
@@ -500,7 +519,7 @@ def main():
 
     has_project_operation = cli.has_project_operation(args)
     if args.dir is None and args.question is None and args.next is None and \
-       args.index is None and not args.where and not args.list and not has_project_operation:
+       args.index is None and args.view is None and not args.where and not args.list and not has_project_operation:
         parser.error("pass -D to set a directory, -Q/-N/-I/--init for question/index/init, a project parameter, -W to check, -L to list, or -h for help")
 
     # Load or set target directory
@@ -522,6 +541,11 @@ def main():
     if args.list:
         shown_dir = target_dir if target_dir is not None else load_state()
         print_index_table(shown_dir)
+        return
+
+    if args.view is not None:
+        shown_dir = target_dir if target_dir is not None else load_state()
+        view_index(shown_dir, args.view)
         return
 
     if target_dir is None:

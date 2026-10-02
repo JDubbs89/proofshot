@@ -14,7 +14,7 @@ COUNTS_FILE = STATE_DIR / "counts.json"
 PROVIDER_FILE = STATE_DIR / "provider"
 DEFAULT_CONFIG_FILE = Path(__file__).resolve().parent.parent / "default_config.json"
 DEFAULT_CONFIG = {"form_category": "Form", "proof_category": "Proof", "index_label": "Q", "filename_prefix": "{directory}{index_label}", "filename_suffix": "{category}", "categories": {"Form": {"suffix": ""}, "Proof": {"suffix": "{category}"}}}
-CURRENT_PROJECT_VERSION = "0.2.6"
+CURRENT_PROJECT_VERSION = "0.2.7"
 DEFAULT_CONFIG["proofshot_version"] = CURRENT_PROJECT_VERSION
 
 def expand_template(template: str, config: dict, **values) -> str:

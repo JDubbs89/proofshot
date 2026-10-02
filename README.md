@@ -4,7 +4,7 @@
 
 Proofshot is a Linux CLI screenshot organizer for penetration testers, students, and anyone who needs repeatable screenshot indexing. It captures through selectable providers, names images consistently, tracks project columns, lists related images, and packages them for export.
 
-Current version: `0.2.6`
+Current version: `0.2.7`
 
 ## Features
 
@@ -59,6 +59,7 @@ proofshot --init AcmeWeb
 proofshot -N                  # AcmeWebQ1.png
 proofshot -P -N              # AcmeWebQ1Proof.png
 proofshot -L                 # list indexed screenshots
+proofshot -V 5               # open the image at index 5
 proofshot -W                 # show the current project
 ```
 

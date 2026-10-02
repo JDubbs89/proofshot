@@ -37,6 +37,7 @@ class CLIService:
   proofshot -N 2 -S                 Capture the complete next span
   proofshot --init ModuleName       Create folder, reset indices, persist
   proofshot -L                      List all indexed questions
+  proofshot -V 5                    Open the image at index 5
   proofshot -W                      Show current working directory""",
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
@@ -84,6 +85,7 @@ class CLIService:
         directory.add_argument("-D", "--dir", metavar="PATH")
         directory.add_argument("-W", "--where", action="store_true")
         directory.add_argument("-L", "--list", action="store_true")
+        directory.add_argument("-V", "--view", type=int, metavar="NUMBER", help="Open the image at an index in the default image viewer")
 
         types = p.add_mutually_exclusive_group()
         types.add_argument("-p", "--proof", action="store_true")
@@ -110,6 +112,8 @@ class CLIService:
             self.parser.error("-S can only be used with -N")
         if args.index is not None and args.question is not None:
             self.parser.error("-I cannot be combined with -Q")
+        if args.view is not None and args.view < 0:
+            self.parser.error("-V NUMBER requires a non-negative index")
 
     def has_project_operation(self, args: argparse.Namespace) -> bool:
         return any(operation.predicate(args) for operation in self._operations)
