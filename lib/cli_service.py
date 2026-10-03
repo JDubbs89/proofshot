@@ -48,6 +48,7 @@ class CLIService:
     def _add_arguments(self, version: str) -> None:
         p = self.parser
         p.add_argument("--version", action="version", version=f"%(prog)s {version}")
+        p.add_argument("--gui", action="store_true", help="Launch the optional Qt GUI")
         p.add_argument("--uninstall", action="store_true", help="Remove the installed proofshot command (keeps saved settings)")
         p.add_argument("--update", action="store_true", help="Download and install the latest GitHub release")
         p.add_argument("--provider", metavar="NAME", help="Set the screenshot provider (flameshot or gnome-screenshot)")
