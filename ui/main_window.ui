@@ -1,34 +1,324 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>MainWindow</class>
- <widget class="QMainWindow" name="MainWindow">
-  <property name="geometry"><rect><x>0</x><y>0</y><width>1200</width><height>760</height></rect></property>
-  <property name="windowTitle"><string>Proofshot</string></property>
-  <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="mainLayout">
-    <property name="spacing"><number>10</number></property>
-    <property name="leftMargin"><number>14</number></property><property name="topMargin"><number>14</number></property><property name="rightMargin"><number>14</number></property><property name="bottomMargin"><number>14</number></property>
-    <item><widget class="QLabel" name="titleLabel"><property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="text"><string>Proofshot</string></property><property name="styleSheet"><string>font-size: 22px; font-weight: 600;</string></property></widget></item>
-    <item><widget class="QSplitter" name="contentSplitter"><property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"><horstretch>0</horstretch><verstretch>1</verstretch></sizepolicy></property><property name="orientation"><enum>Qt::Orientation::Horizontal</enum></property>
-      <widget class="QFrame" name="browserPanel"><property name="frameShape"><enum>QFrame::Shape::StyledPanel</enum></property><layout class="QVBoxLayout" name="browserLayout">
-       <item><widget class="QLabel" name="browserLabel"><property name="text"><string>Project browser</string></property><property name="styleSheet"><string>font-weight: 600;</string></property></widget></item>
-       <item><layout class="QHBoxLayout" name="browserButtons"><item><widget class="QPushButton" name="addPathButton"><property name="text"><string>Add path</string></property></widget></item><item><widget class="QPushButton" name="refreshButton"><property name="text"><string>Refresh</string></property></widget></item><item><widget class="QPushButton" name="createProjectButton"><property name="text"><string>New project</string></property></widget></item></layout></item>
-       <item><widget class="QTreeWidget" name="treeView"><property name="headerHidden"><bool>false</bool></property><column><property name="text"><string>Directories and projects</string></property></column><column><property name="text"><string>Path</string></property></column></widget></item>
-      </layout></widget>
-      <widget class="QFrame" name="galleryPanel"><property name="frameShape"><enum>QFrame::Shape::StyledPanel</enum></property><layout class="QVBoxLayout" name="galleryLayout">
-       <item><widget class="QLabel" name="projectLabel"><property name="text"><string>Select a project</string></property><property name="styleSheet"><string>font-size: 16px; font-weight: 600;</string></property></widget></item>
-       <item><widget class="QSplitter" name="gallerySplitter"><property name="orientation"><enum>Qt::Orientation::Vertical</enum></property>
-        <widget class="QLabel" name="ImagePreview"><property name="minimumSize"><size><width>0</width><height>260</height></size></property><property name="text"><string>Select an image to preview</string></property><property name="alignment"><set>Qt::AlignmentFlag::AlignCenter</set></property><property name="styleSheet"><string>background: #20252b; color: #aab2bd; border-radius: 4px;</string></property></widget>
-        <widget class="QTabWidget" name="detailTabs"><property name="currentIndex"><number>0</number></property>
-         <widget class="QWidget" name="galleryTab"><attribute name="title"><string>Gallery</string></attribute><layout class="QVBoxLayout" name="galleryControlsLayout"><item><widget class="QLineEdit" name="searchFilter"><property name="placeholderText"><string>Filter images by filename, column, or index…</string></property><property name="clearButtonEnabled"><bool>true</bool></property></widget></item><item><widget class="QListWidget" name="ImageGallery"><property name="viewMode"><enum>QListView::ViewMode::IconMode</enum></property><property name="flow"><enum>QListView::Flow::LeftToRight</enum></property><property name="isWrapping"><bool>true</bool></property><property name="resizeMode"><enum>QListView::ResizeMode::Adjust</enum></property><property name="movement"><enum>QListView::Movement::Static</enum></property><property name="iconSize"><size><width>160</width><height>110</height></size></property><property name="gridSize"><size><width>176</width><height>126</height></size></property><property name="spacing"><number>8</number></property><property name="selectionMode"><enum>QAbstractItemView::SelectionMode::SingleSelection</enum></property></widget></item></layout></widget>
-         <widget class="QWidget" name="metadataTab"><attribute name="title"><string>Metadata</string></attribute><layout class="QVBoxLayout" name="metadataLayout"><item><widget class="QToolBox" name="metadataAccordion"><property name="currentIndex"><number>0</number></property><widget class="QWidget" name="metadataPage"><attribute name="label"><string>Image metadata</string></attribute><layout class="QVBoxLayout" name="metadataPageLayout"><item><widget class="QLabel" name="metadataLabel"><property name="text"><string>Select an image to see its metadata.</string></property><property name="alignment"><set>Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set></property><property name="wordWrap"><bool>true</bool></property></widget></item></layout></widget></widget></item></layout></widget>
-        </widget>
-       </widget></item>
-      </layout></widget>
-     </widget></item>
-   </layout>
+  <class>MainWindow</class>
+  <widget class="QMainWindow" name="MainWindow">
+    <property name="geometry">
+      <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>1200</width>
+        <height>760</height>
+      </rect>
+    </property>
+    <property name="windowTitle">
+      <string>Proofshot</string>
+    </property>
+    <widget class="QWidget" name="centralwidget">
+      <layout class="QVBoxLayout" name="mainLayout">
+        <property name="spacing">
+          <number>10</number>
+        </property>
+        <property name="leftMargin">
+          <number>14</number>
+        </property>
+        <property name="topMargin">
+          <number>14</number>
+        </property>
+        <property name="rightMargin">
+          <number>14</number>
+        </property>
+        <property name="bottomMargin">
+          <number>14</number>
+        </property>
+        <item>
+          <widget class="QSplitter" name="contentSplitter">
+            <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                <horstretch>0</horstretch>
+                <verstretch>1</verstretch>
+              </sizepolicy>
+            </property>
+            <property name="orientation">
+              <enum>Qt::Orientation::Horizontal</enum>
+            </property>
+            <widget class="QFrame" name="browserPanel">
+              <property name="frameShape">
+                <enum>QFrame::Shape::StyledPanel</enum>
+              </property>
+              <layout class="QVBoxLayout" name="browserLayout">
+                <item>
+                  <widget class="QLabel" name="browserLabel">
+                    <property name="text">
+                      <string>Project browser</string>
+                    </property>
+                    <property name="styleSheet">
+                      <string>font-weight: 600;</string>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <layout class="QHBoxLayout" name="browserButtons">
+                    <item>
+                      <widget class="QPushButton" name="addPathButton">
+                        <property name="text">
+                          <string>Add path</string>
+                        </property>
+                      </widget>
+                    </item>
+                    <item>
+                      <widget class="QPushButton" name="refreshButton">
+                        <property name="text">
+                          <string>Refresh</string>
+                        </property>
+                      </widget>
+                    </item>
+                    <item>
+                      <widget class="QPushButton" name="createProjectButton">
+                        <property name="text">
+                          <string>New project</string>
+                        </property>
+                      </widget>
+                    </item>
+                  </layout>
+                </item>
+                <item>
+                  <widget class="QTreeWidget" name="treeView">
+                    <property name="headerHidden">
+                      <bool>true</bool>
+                    </property>
+                    <column>
+                      <property name="text">
+                        <string>Projects</string>
+                      </property>
+                    </column>
+                  </widget>
+                </item>
+              </layout>
+            </widget>
+            <widget class="QFrame" name="galleryPanel">
+              <property name="frameShape">
+                <enum>QFrame::Shape::StyledPanel</enum>
+              </property>
+              <layout class="QVBoxLayout" name="galleryLayout">
+                <item>
+                  <layout class="QHBoxLayout" name="projectHeaderLayout">
+                    <item>
+                      <widget class="QLabel" name="projectLabel">
+                        <property name="sizePolicy">
+                          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                          </sizepolicy>
+                        </property>
+                        <property name="text">
+                          <string>Select a project</string>
+                        </property>
+                        <property name="styleSheet">
+                          <string>font-size: 13px; font-weight: 400;</string>
+                        </property>
+                      </widget>
+                    </item>
+                    <item>
+                      <widget class="QPushButton" name="captureProjectButton">
+                        <property name="text">
+                          <string>Capture…</string>
+                        </property>
+                      </widget>
+                    </item>
+                  </layout>
+                </item>
+                <item>
+                  <widget class="QSplitter" name="gallerySplitter">
+                    <property name="orientation">
+                      <enum>Qt::Orientation::Horizontal</enum>
+                    </property>
+                    <widget class="QSplitter" name="previewTerminalSplitter">
+                      <property name="orientation">
+                        <enum>Qt::Orientation::Vertical</enum>
+                      </property>
+                      <widget class="QLabel" name="ImagePreview">
+                        <property name="minimumSize">
+                          <size>
+                            <width>320</width>
+                            <height>260</height>
+                          </size>
+                        </property>
+                        <property name="text">
+                          <string>Select an image to preview</string>
+                        </property>
+                        <property name="alignment">
+                          <set>Qt::AlignmentFlag::AlignCenter</set>
+                        </property>
+                        <property name="styleSheet">
+                          <string>background: #20252b; color: #aab2bd; border-radius: 4px;</string>
+                        </property>
+                      </widget>
+                      <widget class="QFrame" name="terminalPanel">
+                        <property name="frameShape">
+                          <enum>QFrame::Shape::StyledPanel</enum>
+                        </property>
+                        <layout class="QVBoxLayout" name="terminalLayout">
+                          <property name="leftMargin">
+                            <number>6</number>
+                          </property>
+                          <property name="topMargin">
+                            <number>6</number>
+                          </property>
+                          <property name="rightMargin">
+                            <number>6</number>
+                          </property>
+                          <property name="bottomMargin">
+                            <number>6</number>
+                          </property>
+                          <property name="spacing">
+                            <number>4</number>
+                          </property>
+                          <item>
+                            <widget class="QLabel" name="terminalLabel">
+                              <property name="text">
+                                <string>Terminal</string>
+                              </property>
+                              <property name="styleSheet">
+                                <string>font-size: 11px; font-weight: 600;</string>
+                              </property>
+                            </widget>
+                          </item>
+                          <item>
+                            <widget class="QPlainTextEdit" name="terminalOutput">
+                              <property name="readOnly">
+                                <bool>true</bool>
+                              </property>
+                              <property name="plainText">
+                                <string>Proofshot terminal
+Select a project to begin.</string>
+                              </property>
+                              <property name="styleSheet">
+                                <string>background: #15191e; color: #d7dde5; border: 1px solid #30363d; font-family: monospace;</string>
+                              </property>
+                            </widget>
+                          </item>
+                          <item>
+                            <widget class="QLineEdit" name="terminalInput">
+                              <property name="placeholderText">
+                                <string>Enter a command…</string>
+                              </property>
+                              <property name="styleSheet">
+                                <string>background: #15191e; color: #d7dde5; border: 1px solid #30363d; font-family: monospace;</string>
+                              </property>
+                            </widget>
+                          </item>
+                        </layout>
+                      </widget>
+                    </widget>
+                    <widget class="QTabWidget" name="detailTabs">
+                      <property name="minimumSize">
+                        <size>
+                          <width>280</width>
+                          <height>0</height>
+                        </size>
+                      </property>
+                      <property name="currentIndex">
+                        <number>0</number>
+                      </property>
+                      <widget class="QWidget" name="galleryTab">
+                        <attribute name="title">
+                          <string>Gallery</string>
+                        </attribute>
+                        <layout class="QVBoxLayout" name="galleryControlsLayout">
+                          <item>
+                            <widget class="QLineEdit" name="searchFilter">
+                              <property name="placeholderText">
+                                <string>Filter images by filename, column, or index…</string>
+                              </property>
+                              <property name="clearButtonEnabled">
+                                <bool>true</bool>
+                              </property>
+                            </widget>
+                          </item>
+                          <item>
+                            <widget class="QListWidget" name="ImageGallery">
+                              <property name="viewMode">
+                                <enum>QListView::ViewMode::IconMode</enum>
+                              </property>
+                              <property name="flow">
+                                <enum>QListView::Flow::LeftToRight</enum>
+                              </property>
+                              <property name="isWrapping">
+                                <bool>true</bool>
+                              </property>
+                              <property name="resizeMode">
+                                <enum>QListView::ResizeMode::Adjust</enum>
+                              </property>
+                              <property name="movement">
+                                <enum>QListView::Movement::Static</enum>
+                              </property>
+                              <property name="iconSize">
+                                <size>
+                                  <width>160</width>
+                                  <height>110</height>
+                                </size>
+                              </property>
+                              <property name="gridSize">
+                                <size>
+                                  <width>176</width>
+                                  <height>126</height>
+                                </size>
+                              </property>
+                              <property name="spacing">
+                                <number>8</number>
+                              </property>
+                              <property name="selectionMode">
+                                <enum>QAbstractItemView::SelectionMode::SingleSelection</enum>
+                              </property>
+                            </widget>
+                          </item>
+                        </layout>
+                      </widget>
+                      <widget class="QWidget" name="metadataTab">
+                        <attribute name="title">
+                          <string>Metadata</string>
+                        </attribute>
+                        <layout class="QVBoxLayout" name="metadataLayout">
+                          <item>
+                            <widget class="QToolBox" name="metadataAccordion">
+                              <property name="currentIndex">
+                                <number>0</number>
+                              </property>
+                              <widget class="QWidget" name="metadataPage">
+                                <attribute name="label">
+                                  <string>Image metadata</string>
+                                </attribute>
+                                <layout class="QVBoxLayout" name="metadataPageLayout">
+                                  <item>
+                                    <widget class="QLabel" name="metadataLabel">
+                                      <property name="text">
+                                        <string>Select an image to see its metadata.</string>
+                                      </property>
+                                      <property name="alignment">
+                                        <set>Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
+                                      </property>
+                                      <property name="wordWrap">
+                                        <bool>true</bool>
+                                      </property>
+                                    </widget>
+                                  </item>
+                                </layout>
+                              </widget>
+                            </widget>
+                          </item>
+                        </layout>
+                      </widget>
+                    </widget>
+                  </widget>
+                </item>
+              </layout>
+            </widget>
+          </widget>
+        </item>
+      </layout>
+    </widget>
+    <widget class="QStatusBar" name="statusbar"/>
   </widget>
-  <widget class="QStatusBar" name="statusbar"/>
- </widget>
- <resources/><connections/>
+  <resources/>
+  <connections/>
 </ui>

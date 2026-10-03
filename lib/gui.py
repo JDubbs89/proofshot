@@ -1,18 +1,19 @@
 """Optional PySide6 GUI for project discovery and image management."""
 from pathlib import Path
+import shlex
 import sys
 
-from .config_service import STATE_DIR, create_project_config, load_config, reset_indices
+from .config_service import STATE_DIR, create_project_config, load_config, load_counts, reset_indices
 from .image_service import project_images
 from .workspace_service import discover_projects, load_workspace, normalize_paths, save_workspace
 
 
 def run_gui() -> int:
     try:
-        from PySide6.QtCore import QFile, QSize, Qt
+        from PySide6.QtCore import QFile, QProcess, QSize, Qt
         from PySide6.QtGui import QColor, QIcon, QLinearGradient, QPainter, QPainterPath, QPixmap
         from PySide6.QtUiTools import QUiLoader
-        from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog, QLabel, QListWidget, QListWidgetItem, QLineEdit, QMessageBox, QPushButton, QSplitter, QStyledItemDelegate, QTreeWidget, QTreeWidgetItem
+        from PySide6.QtWidgets import QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem, QLineEdit, QMessageBox, QPushButton, QSizePolicy, QSpinBox, QSplitter, QStyle, QStyledItemDelegate, QTreeWidget, QTreeWidgetItem, QWidget
     except ImportError:
         print("The Proofshot GUI requires PySide6. Install the optional GUI dependency first.", file=sys.stderr)
         return 2
@@ -31,14 +32,81 @@ def run_gui() -> int:
     workspace = load_workspace(STATE_DIR)
     selected_images = []
     tree = window.findChild(QTreeWidget, "treeView")
+    tree.setRootIsDecorated(True)
+    tree.setItemsExpandable(True)
+    tree.setIndentation(18)
+    tree.setIconSize(QSize(16, 16))
+    tree.viewport().setCursor(Qt.CursorShape.PointingHandCursor)
+    tree.setStyleSheet("""
+        QTreeWidget { border: none; outline: none; }
+        QTreeWidget::item { height: 24px; color: rgba(255, 255, 255, 0.82); }
+        QTreeWidget::item:hover { background: rgba(255, 255, 255, 0.08); }
+        QTreeWidget::item:selected { background: rgba(255, 255, 255, 0.20); }
+    """)
     image_gallery = window.findChild(QListWidget, "ImageGallery")
+    image_gallery.viewport().setCursor(Qt.CursorShape.PointingHandCursor)
     search_filter = window.findChild(QLineEdit, "searchFilter")
     preview = window.findChild(QLabel, "ImagePreview")
     project_label = window.findChild(QLabel, "projectLabel")
     metadata_label = window.findChild(QLabel, "metadataLabel")
+    terminal_output = window.findChild(object, "terminalOutput")
+    terminal_input = window.findChild(QLineEdit, "terminalInput")
     status = window.statusBar()
     window.findChild(QSplitter, "contentSplitter").setSizes([350, 800])
-    window.findChild(QSplitter, "gallerySplitter").setSizes([430, 215])
+    window.findChild(QSplitter, "gallerySplitter").setSizes([800, 300])
+    window.findChild(QSplitter, "previewTerminalSplitter").setSizes([430, 215])
+    active_project = None
+    terminal_process = QProcess(window)
+    terminal_process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+
+    def append_terminal(text):
+        terminal_output.appendPlainText(text.rstrip("\n"))
+        terminal_output.verticalScrollBar().setValue(terminal_output.verticalScrollBar().maximum())
+
+    def append_process_output():
+        output = bytes(terminal_process.readAllStandardOutput()).decode(errors="replace")
+        if output:
+            append_terminal(output)
+
+    def finish_terminal_command(exit_code, _exit_status):
+        append_process_output()
+        append_terminal(f"[process exited with code {exit_code}]")
+        terminal_input.setEnabled(True)
+        terminal_input.setFocus()
+        refresh()
+
+    def run_proofshot(arguments):
+        if terminal_process.state() != QProcess.ProcessState.NotRunning:
+            append_terminal("A Proofshot command is already running.")
+            return
+        if "--gui" in arguments:
+            append_terminal("The GUI cannot be launched from its own terminal.")
+            return
+        if active_project and "-D" not in arguments and "--dir" not in arguments:
+            arguments.extend(["-D", active_project])
+        append_terminal(f"$ proofshot {shlex.join(arguments)}")
+        terminal_input.setEnabled(False)
+        terminal_process.setProgram(sys.executable)
+        terminal_process.setArguments([str(Path(__file__).resolve().parents[1] / "proofshot.py"), *arguments])
+        terminal_process.start()
+
+    def run_terminal_command():
+        command = terminal_input.text().strip()
+        if not command:
+            return
+        terminal_input.clear()
+        try:
+            run_proofshot(shlex.split(command))
+        except ValueError as exc:
+            append_terminal(f"shell parsing error: {exc}")
+
+    def terminal_error(_error):
+        append_terminal(f"[could not start Proofshot: {terminal_process.errorString()}]")
+        terminal_input.setEnabled(True)
+
+    terminal_process.readyReadStandardOutput.connect(append_process_output)
+    terminal_process.finished.connect(finish_terminal_command)
+    terminal_process.errorOccurred.connect(terminal_error)
 
     class ThumbnailDelegate(QStyledItemDelegate):
         """Render gallery items as uniform rounded image cards with title overlays."""
@@ -85,13 +153,18 @@ def run_gui() -> int:
             painter.fillRect(card.left(), card.bottom() - 58, card.width(), 58, gradient)
             painter.setPen(Qt.GlobalColor.white)
             font = painter.font()
-            font.setBold(True)
+            font.setBold(False)
+            font.setPointSize(max(9, font.pointSize() - 1))
             painter.setFont(font)
             text_rect = card.adjusted(8, 0, -8, -8)
             title = index.data(Qt.ItemDataRole.DisplayRole) or ""
             painter.drawText(text_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom,
                              painter.fontMetrics().elidedText(title, Qt.TextElideMode.ElideMiddle,
                                                               text_rect.width()))
+            if option.state & QStyle.StateFlag.State_Selected:
+                painter.setClipping(False)
+                painter.setPen(QColor("#f5f5f5"))
+                painter.drawRoundedRect(card.adjusted(1, 1, -1, -1), 7, 7)
             painter.restore()
 
         def sizeHint(self, option, index):
@@ -99,6 +172,50 @@ def run_gui() -> int:
 
     image_gallery.setItemDelegate(ThumbnailDelegate(image_gallery))
     image_gallery.setUniformItemSizes(True)
+
+    class ElidedLabel(QLabel):
+        """Keep a label's source text while rendering a right-side ellipsis."""
+        def __init__(self, text, parent=None):
+            super().__init__(parent)
+            self._full_text = text
+            self.setToolTip(text)
+            self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+            self._update_elision()
+
+        def resizeEvent(self, event):
+            super().resizeEvent(event)
+            self._update_elision()
+
+        def _update_elision(self):
+            super().setText(self.fontMetrics().elidedText(
+                self._full_text, Qt.TextElideMode.ElideRight, self.contentsRect().width()))
+
+    def add_tree_row(parent, name, objective_path=None):
+        """Add a compact Explorer-style folder row with an inline, elided path."""
+        item = QTreeWidgetItem(parent)
+        row = QWidget()
+        row.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(2, 0, 4, 0)
+        layout.setSpacing(5)
+
+        icon_label = QLabel()
+        icon_label.setPixmap(window.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon).pixmap(16, 16))
+        icon_label.setFixedSize(16, 16)
+        layout.addWidget(icon_label)
+        name_label = QLabel(name)
+        name_label.setStyleSheet("color: rgba(255, 255, 255, 0.82); font-size: 12px; font-weight: 400;")
+        layout.addWidget(name_label)
+
+        if objective_path:
+            path_label = ElidedLabel(objective_path)
+            path_label.setStyleSheet("color: rgba(255, 255, 255, 0.50); font-size: 10px;")
+            path_label.setMinimumWidth(0)
+            layout.addWidget(path_label, 1)
+
+        row.setMinimumHeight(24)
+        tree.setItemWidget(item, 0, row)
+        return item
 
     def show_preview(image):
         pixmap = QPixmap(str(image["path"]))
@@ -135,6 +252,8 @@ def run_gui() -> int:
             update_metadata(visible[0])
 
     def populate_images(path):
+        nonlocal active_project
+        active_project = str(path)
         selected_images[:] = project_images(Path(path))
         project_label.setText(str(path))
         render_gallery()
@@ -149,16 +268,16 @@ def run_gui() -> int:
         projects = discover_projects(workspace)
         for raw_root in normalize_paths(workspace.get("discovery_paths", [])):
             root_path = Path(raw_root)
-            root = QTreeWidgetItem([root_path.name or raw_root, raw_root])
+            root = add_tree_row(tree, root_path.name or raw_root, raw_root)
             root.setData(0, Qt.ItemDataRole.UserRole, None)
-            tree.addTopLevelItem(root)
             for project in projects:
                 if Path(project["path"]).parent == root_path:
-                    child = QTreeWidgetItem([project["name"], project["path"]])
+                    # Projects inherit the discovery-root path shown on their
+                    # parent, so repeating their absolute paths is unnecessary.
+                    child = add_tree_row(root, project["name"])
                     child.setData(0, Qt.ItemDataRole.UserRole, project["path"])
                     root.addChild(child)
             root.setExpanded(True)
-        tree.resizeColumnToContents(0)
         status.showMessage(f"{len(projects)} project(s) found")
 
     def add_path():
@@ -195,12 +314,85 @@ def run_gui() -> int:
             show_preview(image)
             update_metadata(image)
 
+    def open_capture_dialog():
+        if not active_project:
+            QMessageBox.information(window, "Select a project", "Select a project before starting a capture.")
+            return
+
+        config = load_config(Path(active_project))
+        dialog = QDialog(window)
+        dialog.setWindowTitle("Capture screenshot")
+        form = QFormLayout(dialog)
+
+        category = QComboBox(dialog)
+        categories = list(config.get("categories", {})) or [config["form_category"], config["proof_category"]]
+        category.addItems(categories)
+        form.addRow("Column", category)
+
+        mode = QComboBox(dialog)
+        mode.addItems(["Next index (-N)", "Current index (-I)", "Question number (-Q)"])
+        form.addRow("Capture at", mode)
+
+        number = QSpinBox(dialog)
+        number.setRange(1, 99999)
+        number.setValue(1)
+        form.addRow("Step", number)
+
+        span = QCheckBox("Capture the full next span (-S)", dialog)
+        form.addRow("", span)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok, dialog)
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Start capture")
+        form.addRow(buttons)
+
+        def update_capture_controls():
+            selected_category = category.currentText()
+            current_index = load_counts().get(selected_category, 0)
+            if mode.currentIndex() == 0:
+                form.labelForField(number).setText("Step")
+                number.setRange(1, 99999)
+                number.setValue(1)
+                span.setEnabled(True)
+            elif mode.currentIndex() == 1:
+                form.labelForField(number).setText("Index")
+                number.setRange(0, 99999)
+                number.setValue(current_index)
+                span.setChecked(False)
+                span.setEnabled(False)
+            else:
+                form.labelForField(number).setText("Question")
+                number.setRange(1, 99999)
+                number.setValue(current_index + 1)
+                span.setChecked(False)
+                span.setEnabled(False)
+
+        mode.currentIndexChanged.connect(lambda _index: update_capture_controls())
+        category.currentIndexChanged.connect(lambda _index: update_capture_controls())
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        update_capture_controls()
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        arguments = ["-C", category.currentText()]
+        if mode.currentIndex() == 0:
+            arguments.extend(["-N", str(number.value())])
+            if span.isChecked():
+                arguments.append("-S")
+        elif mode.currentIndex() == 1:
+            arguments.extend(["-I", str(number.value())])
+        else:
+            arguments.extend(["-Q", str(number.value())])
+        run_proofshot(arguments)
+
     window.findChild(QPushButton, "addPathButton").clicked.connect(add_path)
     window.findChild(QPushButton, "refreshButton").clicked.connect(refresh)
     window.findChild(QPushButton, "createProjectButton").clicked.connect(create_project)
+    window.findChild(QPushButton, "captureProjectButton").clicked.connect(open_capture_dialog)
     tree.itemClicked.connect(select_tree_item)
     image_gallery.itemClicked.connect(select_image)
     search_filter.textChanged.connect(render_gallery)
+    terminal_input.returnPressed.connect(run_terminal_command)
     refresh()
     window.show()
     return app.exec()

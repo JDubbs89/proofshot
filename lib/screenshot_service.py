@@ -48,11 +48,20 @@ class FlameshotService(ScreenshotService):
         except (FileNotFoundError, subprocess.CalledProcessError): raise SystemExit("flameshot not found. Install Flameshot or verify it is on PATH.")
 
     def capture_raw(self, target: Path):
+        environment = os.environ.copy()
+        # Flameshot launched through XWayland cannot request a screenshot from
+        # the Wayland portal. Prefer its native backend unless the user has
+        # explicitly chosen another Qt platform plugin.
+        if environment.get("XDG_SESSION_TYPE") == "wayland":
+            environment.setdefault("QT_QPA_PLATFORM", "wayland")
         with open(target, "wb") as output:
             result = subprocess.run(["flameshot", "gui", "--raw"], stdout=output,
-                                    stderr=subprocess.PIPE, text=True, check=False)
+                                    stderr=subprocess.PIPE, text=True, check=False,
+                                    env=environment)
         if result.returncode != 0:
-            detail = result.stderr.strip() or f"exit code {result.returncode}"
+            errors = [line for line in result.stderr.splitlines()
+                      if line.startswith("flameshot: error:")]
+            detail = "\n".join(dict.fromkeys(errors)) or result.stderr.strip() or f"exit code {result.returncode}"
             raise subprocess.SubprocessError(f"Flameshot capture failed: {detail}")
 
 class GnomeScreenshotService(ScreenshotService):
