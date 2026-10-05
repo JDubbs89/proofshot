@@ -57,31 +57,6 @@
                   </widget>
                 </item>
                 <item>
-                  <layout class="QHBoxLayout" name="browserButtons">
-                    <item>
-                      <widget class="QPushButton" name="addPathButton">
-                        <property name="text">
-                          <string>Add path</string>
-                        </property>
-                      </widget>
-                    </item>
-                    <item>
-                      <widget class="QPushButton" name="refreshButton">
-                        <property name="text">
-                          <string>Refresh</string>
-                        </property>
-                      </widget>
-                    </item>
-                    <item>
-                      <widget class="QPushButton" name="createProjectButton">
-                        <property name="text">
-                          <string>New project</string>
-                        </property>
-                      </widget>
-                    </item>
-                  </layout>
-                </item>
-                <item>
                   <widget class="QTreeWidget" name="treeView">
                     <property name="headerHidden">
                       <bool>true</bool>
@@ -115,13 +90,6 @@
                         </property>
                         <property name="styleSheet">
                           <string>font-size: 13px; font-weight: 400;</string>
-                        </property>
-                      </widget>
-                    </item>
-                    <item>
-                      <widget class="QPushButton" name="captureProjectButton">
-                        <property name="text">
-                          <string>Capture…</string>
                         </property>
                       </widget>
                     </item>
@@ -174,14 +142,29 @@
                             <number>4</number>
                           </property>
                           <item>
-                            <widget class="QLabel" name="terminalLabel">
-                              <property name="text">
-                                <string>Terminal</string>
-                              </property>
-                              <property name="styleSheet">
-                                <string>font-size: 11px; font-weight: 600;</string>
-                              </property>
-                            </widget>
+                            <layout class="QHBoxLayout" name="terminalHeaderLayout">
+                              <item>
+                                <widget class="QLabel" name="terminalLabel">
+                                  <property name="text">
+                                    <string>Terminal</string>
+                                  </property>
+                                  <property name="styleSheet">
+                                    <string>font-size: 11px; font-weight: 600;</string>
+                                  </property>
+                                </widget>
+                              </item>
+                              <item>
+                                <spacer name="terminalHeaderSpacer">
+                                  <property name="orientation"><enum>Qt::Orientation::Horizontal</enum></property>
+                                  <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+                                </spacer>
+                              </item>
+                              <item>
+                                <widget class="QPushButton" name="captureProjectButton">
+                                  <property name="text"><string>Capture…</string></property>
+                                </widget>
+                              </item>
+                            </layout>
                           </item>
                           <item>
                             <widget class="QPlainTextEdit" name="terminalOutput">
@@ -317,6 +300,7 @@ Select a project to begin.</string>
         </item>
       </layout>
     </widget>
+    <widget class="QMenuBar" name="menubar"/>
     <widget class="QStatusBar" name="statusbar"/>
   </widget>
   <resources/>

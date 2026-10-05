@@ -11,9 +11,9 @@ from .workspace_service import discover_projects, load_workspace, normalize_path
 def run_gui() -> int:
     try:
         from PySide6.QtCore import QFile, QProcess, QSize, Qt
-        from PySide6.QtGui import QColor, QIcon, QLinearGradient, QPainter, QPainterPath, QPixmap
+        from PySide6.QtGui import QAction, QColor, QIcon, QLinearGradient, QPainter, QPainterPath, QPixmap
         from PySide6.QtUiTools import QUiLoader
-        from PySide6.QtWidgets import QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem, QLineEdit, QMessageBox, QPushButton, QSizePolicy, QSpinBox, QSplitter, QStyle, QStyledItemDelegate, QTreeWidget, QTreeWidgetItem, QWidget
+        from PySide6.QtWidgets import QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem, QLineEdit, QMessageBox, QPushButton, QSizePolicy, QSpinBox, QSplitter, QStyle, QStyledItemDelegate, QTabWidget, QTreeWidget, QTreeWidgetItem, QWidget
     except ImportError:
         print("The Proofshot GUI requires PySide6. Install the optional GUI dependency first.", file=sys.stderr)
         return 2
@@ -56,6 +56,8 @@ def run_gui() -> int:
     window.findChild(QSplitter, "gallerySplitter").setSizes([800, 300])
     window.findChild(QSplitter, "previewTerminalSplitter").setSizes([430, 215])
     active_project = None
+    capture_window = None
+    capture_window_action = None
     terminal_process = QProcess(window)
     terminal_process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
 
@@ -315,33 +317,47 @@ def run_gui() -> int:
             update_metadata(image)
 
     def open_capture_dialog():
+        """Show the reusable, non-modal capture window."""
+        nonlocal capture_window
         if not active_project:
             QMessageBox.information(window, "Select a project", "Select a project before starting a capture.")
+            if capture_window_action:
+                capture_window_action.setChecked(False)
+            return
+
+        if capture_window is not None:
+            capture_window.show()
+            capture_window.raise_()
+            capture_window.activateWindow()
+            if capture_window_action:
+                capture_window_action.setChecked(True)
             return
 
         config = load_config(Path(active_project))
-        dialog = QDialog(window)
-        dialog.setWindowTitle("Capture screenshot")
-        form = QFormLayout(dialog)
+        capture_window = QDialog(window, Qt.WindowType.Window)
+        capture_window.setWindowModality(Qt.WindowModality.NonModal)
+        capture_window.setWindowTitle("Capture screenshot")
+        capture_window.setMinimumWidth(330)
+        form = QFormLayout(capture_window)
 
-        category = QComboBox(dialog)
+        category = QComboBox(capture_window)
         categories = list(config.get("categories", {})) or [config["form_category"], config["proof_category"]]
         category.addItems(categories)
         form.addRow("Column", category)
 
-        mode = QComboBox(dialog)
+        mode = QComboBox(capture_window)
         mode.addItems(["Next index (-N)", "Current index (-I)", "Question number (-Q)"])
         form.addRow("Capture at", mode)
 
-        number = QSpinBox(dialog)
+        number = QSpinBox(capture_window)
         number.setRange(1, 99999)
         number.setValue(1)
         form.addRow("Step", number)
 
-        span = QCheckBox("Capture the full next span (-S)", dialog)
+        span = QCheckBox("Capture the full next span (-S)", capture_window)
         form.addRow("", span)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok, dialog)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok, capture_window)
         buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Start capture")
         form.addRow(buttons)
 
@@ -368,26 +384,82 @@ def run_gui() -> int:
 
         mode.currentIndexChanged.connect(lambda _index: update_capture_controls())
         category.currentIndexChanged.connect(lambda _index: update_capture_controls())
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
+        def start_capture():
+            arguments = ["-C", category.currentText()]
+            if mode.currentIndex() == 0:
+                arguments.extend(["-N", str(number.value())])
+                if span.isChecked():
+                    arguments.append("-S")
+            elif mode.currentIndex() == 1:
+                arguments.extend(["-I", str(number.value())])
+            else:
+                arguments.extend(["-Q", str(number.value())])
+            run_proofshot(arguments)
+            hide_capture_window()
+
+        def hide_capture_window():
+            capture_window.hide()
+            capture_window_action.setChecked(False)
+
+        buttons.accepted.connect(start_capture)
+        buttons.rejected.connect(hide_capture_window)
+        capture_window.finished.connect(lambda _result: capture_window_action.setChecked(False))
         update_capture_controls()
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
+        capture_window.show()
+        capture_window.raise_()
+        capture_window.activateWindow()
+        capture_window_action.setChecked(True)
 
-        arguments = ["-C", category.currentText()]
-        if mode.currentIndex() == 0:
-            arguments.extend(["-N", str(number.value())])
-            if span.isChecked():
-                arguments.append("-S")
-        elif mode.currentIndex() == 1:
-            arguments.extend(["-I", str(number.value())])
-        else:
-            arguments.extend(["-Q", str(number.value())])
-        run_proofshot(arguments)
+    file_menu = window.menuBar().addMenu("&File")
+    view_menu = window.menuBar().addMenu("&View")
 
-    window.findChild(QPushButton, "addPathButton").clicked.connect(add_path)
-    window.findChild(QPushButton, "refreshButton").clicked.connect(refresh)
-    window.findChild(QPushButton, "createProjectButton").clicked.connect(create_project)
+    add_path_action = QAction("Add discovery path…", window)
+    refresh_action = QAction("Refresh", window)
+    new_project_action = QAction("New project…", window)
+    exit_action = QAction("Exit", window)
+    add_path_action.triggered.connect(add_path)
+    refresh_action.triggered.connect(refresh)
+    new_project_action.triggered.connect(create_project)
+    exit_action.triggered.connect(window.close)
+    file_menu.addActions([add_path_action, refresh_action, new_project_action])
+    file_menu.addSeparator()
+    file_menu.addAction(exit_action)
+
+    browser_panel = window.findChild(QWidget, "browserPanel")
+    detail_tabs = window.findChild(QTabWidget, "detailTabs")
+    gallery_tab = window.findChild(QWidget, "galleryTab")
+    metadata_tab = window.findChild(QWidget, "metadataTab")
+
+    browser_action = QAction("Project browser", window)
+    browser_action.setCheckable(True)
+    browser_action.setChecked(True)
+    terminal_action = QAction("Terminal", window)
+    terminal_action.setCheckable(True)
+    terminal_action.setChecked(True)
+    gallery_action = QAction("Gallery", window)
+    gallery_action.setCheckable(True)
+    gallery_action.setChecked(True)
+    metadata_action = QAction("Metadata", window)
+    metadata_action.setCheckable(True)
+    metadata_action.setChecked(True)
+    capture_window_action = QAction("Capture window", window)
+    capture_window_action.setCheckable(True)
+    browser_action.toggled.connect(browser_panel.setVisible)
+    terminal_action.toggled.connect(window.findChild(QWidget, "terminalPanel").setVisible)
+    gallery_action.toggled.connect(
+        lambda visible: detail_tabs.setTabVisible(detail_tabs.indexOf(gallery_tab), visible))
+    metadata_action.toggled.connect(
+        lambda visible: detail_tabs.setTabVisible(detail_tabs.indexOf(metadata_tab), visible))
+    capture_window_action.toggled.connect(
+        lambda visible: open_capture_dialog() if visible else capture_window and capture_window.hide())
+    view_menu.addActions([
+        browser_action,
+        terminal_action,
+        gallery_action,
+        metadata_action,
+        capture_window_action,
+    ])
+
     window.findChild(QPushButton, "captureProjectButton").clicked.connect(open_capture_dialog)
     tree.itemClicked.connect(select_tree_item)
     image_gallery.itemClicked.connect(select_image)
