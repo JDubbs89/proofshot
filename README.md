@@ -16,13 +16,13 @@ The 0.3.0 GUI is available as an optional PySide6 interface while the CLI remain
 - Persistent project configuration and counters
 - Content-based manifests that survive file renames
 - Interactive ZIP packaging by column and range
-- Flameshot and GNOME Screenshot providers
+- Flameshot, GNOME Screenshot, and native wlroots (Grim + Slurp) providers
 - Legacy project upgrades
 
 ## Requirements
 
 - Python 3.10+
-- Flameshot 0.10+ with `flameshot gui --raw`, or `gnome-screenshot`
+- Flameshot 0.10+ with `flameshot gui --raw`, `gnome-screenshot`, or Grim + Slurp
 - Optional: `zenity` and `notify-send`
 
 ## Installation
@@ -139,13 +139,18 @@ Successful captures are recorded in `<project>/.manifest.json` with a SHA-256 ha
 
 ## Screenshot providers
 
-Flameshot is the default provider. GNOME Screenshot is also supported:
+Flameshot is the default provider. GNOME Screenshot and a native wlroots provider are also supported:
 
 ```bash
 proofshot --list-providers
 proofshot --provider gnome-screenshot --install
 proofshot --provider flameshot
+proofshot --provider grim-slurp --install
 ```
+
+`grim-slurp` opens Slurp's region selector and captures the selection with Grim.
+It is intended for Hyprland and other wlroots compositors, and does not use the
+XDG desktop portal.
 
 Provider changes verify dependencies before saving the new selection. `--install` must be explicitly provided to install a provider. The selection is stored in `~/.config/proofshot/provider`.
 

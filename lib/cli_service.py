@@ -51,7 +51,7 @@ class CLIService:
         p.add_argument("--gui", action="store_true", help="Launch the optional Qt GUI")
         p.add_argument("--uninstall", action="store_true", help="Remove the installed proofshot command (keeps saved settings)")
         p.add_argument("--update", action="store_true", help="Download and install the latest GitHub release")
-        p.add_argument("--provider", metavar="NAME", help="Set the screenshot provider (flameshot or gnome-screenshot)")
+        p.add_argument("--provider", metavar="NAME", help="Set the screenshot provider (flameshot, gnome-screenshot, or grim-slurp)")
         p.add_argument("--install", action="store_true", help="Install dependencies for the selected screenshot provider")
         p.add_argument("--list-providers", action="store_true", help="List available screenshot providers")
 

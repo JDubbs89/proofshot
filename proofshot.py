@@ -657,7 +657,7 @@ def main():
             sys.exit("Aborted.")
 
     # Capture screenshot
-    print(f"\nLaunching Flameshot. Select the region to capture...\n")
+    print(f"\nLaunching {load_provider()}. Select the region to capture...\n")
     success = screenshot_service.capture(target)
 
     if not success:
