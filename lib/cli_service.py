@@ -19,7 +19,7 @@ class CLIService:
 
     PROJECT_OPERATIONS = (
         "rename_column", "add_column", "remove_column", "add_screenshot",
-        "remove_screenshot", "set_prefix", "set_suffix", "set_column_prefix",
+        "remove_screenshot", "retake_screenshot", "set_prefix", "set_suffix", "set_column_prefix",
         "set_column_suffix", "set_variable", "set_index_label", "show_config",
         "show_columns", "package", "upgrade_project",
     )
@@ -81,6 +81,7 @@ class CLIService:
         project_ops.add_argument("--upgrade-project", action="store_true")
         project_ops.add_argument("--add-screenshot", metavar="PATH")
         project_ops.add_argument("--remove-screenshot", metavar="NAME")
+        project_ops.add_argument("--retake-screenshot", metavar="NAME", help=argparse.SUPPRESS)
 
         directory = p.add_argument_group("Directory Parameters")
         directory.add_argument("-D", "--dir", metavar="PATH")

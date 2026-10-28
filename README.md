@@ -137,6 +137,8 @@ Settings are stored in `<project>/.proofshot.json`. New configurations include `
 
 Successful captures are recorded in `<project>/.manifest.json` with a SHA-256 hash, index/range, category, and filename.
 
+Each project stores its current column indices in `<project>/.proofshot-counts.json`. Opening a project restores the Form, Proof, and custom-column indices you last used in that project.
+
 ## Screenshot providers
 
 Flameshot is the default provider. GNOME Screenshot and a native wlroots provider are also supported:
@@ -167,8 +169,9 @@ Enter a column name or index, then a range such as `1-5`. Leave the range blank 
 Global state is stored in `~/.config/proofshot/`:
 
 - `last_dir` — current project directory
-- `counts.json` — category counters
 - `provider` — selected screenshot provider
+
+Current column indices are stored in each project rather than global state.
 
 The code is organized as:
 

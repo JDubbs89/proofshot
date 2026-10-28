@@ -15,18 +15,20 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QFrame, QHBoxLayout,
-    QHeaderView, QLabel, QLineEdit, QListView,
-    QListWidget, QListWidgetItem, QMainWindow, QPlainTextEdit,
-    QPushButton, QSizePolicy, QSplitter, QStatusBar,
-    QTabWidget, QToolBox, QTreeWidget, QTreeWidgetItem,
-    QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractItemView, QAbstractSpinBox, QApplication, QCheckBox,
+    QComboBox, QFrame, QHBoxLayout, QHeaderView,
+    QLabel, QLineEdit, QListView, QListWidget,
+    QListWidgetItem, QMainWindow, QMenuBar, QPlainTextEdit,
+    QPushButton, QSizePolicy, QSpacerItem, QSpinBox,
+    QSplitter, QStatusBar, QTabWidget, QToolBox,
+    QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
         MainWindow.resize(1200, 760)
+        MainWindow.setMinimumSize(QSize(420, 640))
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.mainLayout = QVBoxLayout(self.centralwidget)
@@ -50,26 +52,6 @@ class Ui_MainWindow(object):
         self.browserLabel.setObjectName(u"browserLabel")
 
         self.browserLayout.addWidget(self.browserLabel)
-
-        self.browserButtons = QHBoxLayout()
-        self.browserButtons.setObjectName(u"browserButtons")
-        self.addPathButton = QPushButton(self.browserPanel)
-        self.addPathButton.setObjectName(u"addPathButton")
-
-        self.browserButtons.addWidget(self.addPathButton)
-
-        self.refreshButton = QPushButton(self.browserPanel)
-        self.refreshButton.setObjectName(u"refreshButton")
-
-        self.browserButtons.addWidget(self.refreshButton)
-
-        self.createProjectButton = QPushButton(self.browserPanel)
-        self.createProjectButton.setObjectName(u"createProjectButton")
-
-        self.browserButtons.addWidget(self.createProjectButton)
-
-
-        self.browserLayout.addLayout(self.browserButtons)
 
         self.treeView = QTreeWidget(self.browserPanel)
         self.treeView.setObjectName(u"treeView")
@@ -95,10 +77,14 @@ class Ui_MainWindow(object):
 
         self.projectHeaderLayout.addWidget(self.projectLabel)
 
-        self.captureProjectButton = QPushButton(self.galleryPanel)
-        self.captureProjectButton.setObjectName(u"captureProjectButton")
+        self.projectHeaderSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        self.projectHeaderLayout.addWidget(self.captureProjectButton)
+        self.projectHeaderLayout.addItem(self.projectHeaderSpacer)
+
+        self.refreshGalleryButton = QPushButton(self.galleryPanel)
+        self.refreshGalleryButton.setObjectName(u"refreshGalleryButton")
+
+        self.projectHeaderLayout.addWidget(self.refreshGalleryButton)
 
 
         self.galleryLayout.addLayout(self.projectHeaderLayout)
@@ -121,10 +107,75 @@ class Ui_MainWindow(object):
         self.terminalLayout.setSpacing(4)
         self.terminalLayout.setObjectName(u"terminalLayout")
         self.terminalLayout.setContentsMargins(6, 6, 6, 6)
+        self.terminalHeaderLayout = QHBoxLayout()
+        self.terminalHeaderLayout.setSpacing(6)
+        self.terminalHeaderLayout.setObjectName(u"terminalHeaderLayout")
         self.terminalLabel = QLabel(self.terminalPanel)
         self.terminalLabel.setObjectName(u"terminalLabel")
 
-        self.terminalLayout.addWidget(self.terminalLabel)
+        self.terminalHeaderLayout.addWidget(self.terminalLabel)
+
+        self.captureColumnLabel = QLabel(self.terminalPanel)
+        self.captureColumnLabel.setObjectName(u"captureColumnLabel")
+
+        self.terminalHeaderLayout.addWidget(self.captureColumnLabel)
+
+        self.captureColumnCombo = QComboBox(self.terminalPanel)
+        self.captureColumnCombo.setObjectName(u"captureColumnCombo")
+        self.captureColumnCombo.setMinimumSize(QSize(96, 30))
+
+        self.terminalHeaderLayout.addWidget(self.captureColumnCombo)
+
+        self.captureSpanCheck = QCheckBox(self.terminalPanel)
+        self.captureSpanCheck.setObjectName(u"captureSpanCheck")
+
+        self.terminalHeaderLayout.addWidget(self.captureSpanCheck)
+
+        self.captureIncrementSpin = QSpinBox(self.terminalPanel)
+        self.captureIncrementSpin.setObjectName(u"captureIncrementSpin")
+        self.captureIncrementSpin.setMinimum(1)
+        self.captureIncrementSpin.setMaximum(99999)
+        self.captureIncrementSpin.setValue(1)
+        self.captureIncrementSpin.setMinimumSize(QSize(78, 30))
+
+        self.terminalHeaderLayout.addWidget(self.captureIncrementSpin)
+
+        self.indexDecrementButton = QPushButton(self.terminalPanel)
+        self.indexDecrementButton.setObjectName(u"indexDecrementButton")
+        self.indexDecrementButton.setMinimumSize(QSize(30, 30))
+        self.indexDecrementButton.setMaximumSize(QSize(30, 30))
+
+        self.terminalHeaderLayout.addWidget(self.indexDecrementButton)
+
+        self.currentIndexSpin = QSpinBox(self.terminalPanel)
+        self.currentIndexSpin.setObjectName(u"currentIndexSpin")
+        self.currentIndexSpin.setMinimum(0)
+        self.currentIndexSpin.setMaximum(99999)
+        self.currentIndexSpin.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
+        self.currentIndexSpin.setMinimumSize(QSize(84, 30))
+        self.currentIndexSpin.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.terminalHeaderLayout.addWidget(self.currentIndexSpin)
+
+        self.indexIncrementButton = QPushButton(self.terminalPanel)
+        self.indexIncrementButton.setObjectName(u"indexIncrementButton")
+        self.indexIncrementButton.setMinimumSize(QSize(30, 30))
+        self.indexIncrementButton.setMaximumSize(QSize(30, 30))
+
+        self.terminalHeaderLayout.addWidget(self.indexIncrementButton)
+
+        self.terminalHeaderSpacer = QSpacerItem(16, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.terminalHeaderLayout.addItem(self.terminalHeaderSpacer)
+
+        self.captureProjectButton = QPushButton(self.terminalPanel)
+        self.captureProjectButton.setObjectName(u"captureProjectButton")
+        self.captureProjectButton.setMinimumSize(QSize(112, 32))
+
+        self.terminalHeaderLayout.addWidget(self.captureProjectButton)
+
+
+        self.terminalLayout.addLayout(self.terminalHeaderLayout)
 
         self.terminalOutput = QPlainTextEdit(self.terminalPanel)
         self.terminalOutput.setObjectName(u"terminalOutput")
@@ -198,6 +249,9 @@ class Ui_MainWindow(object):
         self.mainLayout.addWidget(self.contentSplitter)
 
         MainWindow.setCentralWidget(self.centralwidget)
+        self.menubar = QMenuBar(MainWindow)
+        self.menubar.setObjectName(u"menubar")
+        MainWindow.setMenuBar(self.menubar)
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
         MainWindow.setStatusBar(self.statusbar)
@@ -215,18 +269,64 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"Proofshot", None))
         self.browserLabel.setText(QCoreApplication.translate("MainWindow", u"Project browser", None))
         self.browserLabel.setStyleSheet(QCoreApplication.translate("MainWindow", u"font-weight: 600;", None))
-        self.addPathButton.setText(QCoreApplication.translate("MainWindow", u"Add path", None))
-        self.refreshButton.setText(QCoreApplication.translate("MainWindow", u"Refresh", None))
-        self.createProjectButton.setText(QCoreApplication.translate("MainWindow", u"New project", None))
         ___qtreewidgetitem = self.treeView.headerItem()
         ___qtreewidgetitem.setText(0, QCoreApplication.translate("MainWindow", u"Projects", None))
         self.projectLabel.setText(QCoreApplication.translate("MainWindow", u"Select a project", None))
-        self.projectLabel.setStyleSheet(QCoreApplication.translate("MainWindow", u"font-size: 13px; font-weight: 400;", None))
-        self.captureProjectButton.setText(QCoreApplication.translate("MainWindow", u"Capture\u2026", None))
+        self.projectLabel.setStyleSheet(QCoreApplication.translate("MainWindow", u"font-size: 13px; font-weight: 500;", None))
+        self.refreshGalleryButton.setText(QCoreApplication.translate("MainWindow", u"Refresh images", None))
+#if QT_CONFIG(tooltip)
+        self.refreshGalleryButton.setToolTip(QCoreApplication.translate("MainWindow", u"Reload screenshots for the selected project", None))
+#endif // QT_CONFIG(tooltip)
         self.ImagePreview.setText(QCoreApplication.translate("MainWindow", u"Select an image to preview", None))
         self.ImagePreview.setStyleSheet(QCoreApplication.translate("MainWindow", u"background: #20252b; color: #aab2bd; border-radius: 4px;", None))
         self.terminalLabel.setText(QCoreApplication.translate("MainWindow", u"Terminal", None))
         self.terminalLabel.setStyleSheet(QCoreApplication.translate("MainWindow", u"font-size: 11px; font-weight: 600;", None))
+        self.captureColumnLabel.setText(QCoreApplication.translate("MainWindow", u"Column", None))
+#if QT_CONFIG(tooltip)
+        self.captureColumnCombo.setToolTip(QCoreApplication.translate("MainWindow", u"Column used for the next capture", None))
+#endif // QT_CONFIG(tooltip)
+#if QT_CONFIG(accessibility)
+        self.captureColumnCombo.setAccessibleName(QCoreApplication.translate("MainWindow", u"Capture column", None))
+#endif // QT_CONFIG(accessibility)
+        self.captureSpanCheck.setText(QCoreApplication.translate("MainWindow", u"-S span", None))
+#if QT_CONFIG(tooltip)
+        self.captureSpanCheck.setToolTip(QCoreApplication.translate("MainWindow", u"Capture the complete range from the current index to the next index", None))
+#endif // QT_CONFIG(tooltip)
+        self.captureIncrementSpin.setPrefix(QCoreApplication.translate("MainWindow", u"Step ", None))
+#if QT_CONFIG(tooltip)
+        self.captureIncrementSpin.setToolTip(QCoreApplication.translate("MainWindow", u"How far Capture Next advances; with -S, capture the full range", None))
+#endif // QT_CONFIG(tooltip)
+#if QT_CONFIG(accessibility)
+        self.captureIncrementSpin.setAccessibleName(QCoreApplication.translate("MainWindow", u"Capture increment", None))
+#endif // QT_CONFIG(accessibility)
+        self.indexDecrementButton.setText(QCoreApplication.translate("MainWindow", u"\u2212", None))
+#if QT_CONFIG(tooltip)
+        self.indexDecrementButton.setToolTip(QCoreApplication.translate("MainWindow", u"Decrease the active index", None))
+#endif // QT_CONFIG(tooltip)
+#if QT_CONFIG(accessibility)
+        self.indexDecrementButton.setAccessibleName(QCoreApplication.translate("MainWindow", u"Decrease active index", None))
+#endif // QT_CONFIG(accessibility)
+        self.currentIndexSpin.setPrefix(QCoreApplication.translate("MainWindow", u"Index ", None))
+#if QT_CONFIG(tooltip)
+        self.currentIndexSpin.setToolTip(QCoreApplication.translate("MainWindow", u"Current index for the selected column", None))
+#endif // QT_CONFIG(tooltip)
+#if QT_CONFIG(accessibility)
+        self.currentIndexSpin.setAccessibleName(QCoreApplication.translate("MainWindow", u"Current active index", None))
+#endif // QT_CONFIG(accessibility)
+        self.indexIncrementButton.setText(QCoreApplication.translate("MainWindow", u"+", None))
+#if QT_CONFIG(tooltip)
+        self.indexIncrementButton.setToolTip(QCoreApplication.translate("MainWindow", u"Increase the active index", None))
+#endif // QT_CONFIG(tooltip)
+#if QT_CONFIG(accessibility)
+        self.indexIncrementButton.setAccessibleName(QCoreApplication.translate("MainWindow", u"Increase active index", None))
+#endif // QT_CONFIG(accessibility)
+        self.captureProjectButton.setText(QCoreApplication.translate("MainWindow", u"Capture Next", None))
+#if QT_CONFIG(tooltip)
+        self.captureProjectButton.setToolTip(QCoreApplication.translate("MainWindow", u"Capture at the next index using the selected column and increment", None))
+#endif // QT_CONFIG(tooltip)
+#if QT_CONFIG(accessibility)
+        self.captureProjectButton.setAccessibleName(QCoreApplication.translate("MainWindow", u"Capture next screenshot", None))
+#endif // QT_CONFIG(accessibility)
         self.terminalOutput.setPlainText(QCoreApplication.translate("MainWindow", u"Proofshot terminal\n"
 "Select a project to begin.", None))
         self.terminalOutput.setStyleSheet(QCoreApplication.translate("MainWindow", u"background: #15191e; color: #d7dde5; border: 1px solid #30363d; font-family: monospace;", None))

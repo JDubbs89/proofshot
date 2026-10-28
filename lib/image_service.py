@@ -7,7 +7,8 @@ def project_images(project_dir: Path) -> list[dict]:
     records = []
     for path in sorted(project_dir.glob("*.png"), key=lambda item: item.name.lower()):
         entries = manifest.get(image_hash(path), []); entry = entries[0] if entries else {}
-        records.append({"path": path, "filename": path.name, "category": entry.get("category", ""), "index": entry.get("index"), "index_end": entry.get("index_end", entry.get("index")), "manifested": bool(entries), "size": path.stat().st_size})
+        stat = path.stat()
+        records.append({"path": path, "filename": path.name, "category": entry.get("category", ""), "index": entry.get("index"), "index_end": entry.get("index_end", entry.get("index")), "manifested": bool(entries), "size": stat.st_size, "modified_ns": stat.st_mtime_ns})
     # Filenames are user-editable and lexical sorting puts, for example,
     # Figure10 before Figure2.  The manifest index is the project's source of
     # truth for figure order, so use it to control the gallery insertion order.

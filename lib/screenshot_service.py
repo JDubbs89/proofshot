@@ -3,6 +3,7 @@
 import shutil
 import subprocess
 import os
+import tempfile
 from pathlib import Path
 
 class ScreenshotService:
@@ -18,18 +19,29 @@ class ScreenshotService:
     def capture(self, target: Path) -> bool:
         """Capture safely and reject failed or partial provider output."""
         self.last_error = None
+        temporary = None
         try:
-            target.unlink(missing_ok=True)
-            self.capture_raw(target)
+            temporary_file = tempfile.NamedTemporaryFile(
+                dir=target.parent,
+                prefix=f".{target.stem}-capture-",
+                suffix=".png",
+                delete=False,
+            )
+            temporary = Path(temporary_file.name)
+            temporary_file.close()
+            temporary.unlink(missing_ok=True)
+            self.capture_raw(temporary)
+            if not temporary.is_file() or temporary.stat().st_size < 100:
+                self.last_error = "provider returned no usable PNG data"
+                return False
+            temporary.replace(target)
+            return True
         except (OSError, subprocess.SubprocessError) as exc:
             self.last_error = str(exc)
-            target.unlink(missing_ok=True)
             return False
-        if not target.is_file() or target.stat().st_size < 100:
-            self.last_error = "provider returned no usable PNG data"
-            target.unlink(missing_ok=True)
-            return False
-        return True
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
     def capture_raw(self, target: Path):
         """Provider-specific capture implementation."""

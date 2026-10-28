@@ -11,6 +11,7 @@ MANIFEST_NAME = ".manifest.json"
 STATE_DIR = Path.home() / ".config" / "proofshot"
 STATE_FILE = STATE_DIR / "last_dir"
 COUNTS_FILE = STATE_DIR / "counts.json"
+PROJECT_COUNTS_NAME = ".proofshot-counts.json"
 PROVIDER_FILE = STATE_DIR / "provider"
 DEFAULT_CONFIG_FILE = Path(__file__).resolve().parent.parent / "default_config.json"
 DEFAULT_CONFIG = {"form_category": "Form", "proof_category": "Proof", "index_label": "Q", "filename_prefix": "{directory}{index_label}", "filename_suffix": "{category}", "categories": {"Form": {"suffix": ""}, "Proof": {"suffix": "{category}"}}}
@@ -61,28 +62,75 @@ def naming_for_category(config: dict, category: str) -> tuple[str, str]:
     category_config = config.get("categories", {}).get(category, {})
     return category_config.get("prefix", config["filename_prefix"]), category_config.get("suffix", config["filename_suffix"])
 
-def load_counts() -> dict:
-    ensure_state_dir()
-    if not COUNTS_FILE.exists(): return {"Form": 0, "Proof": 0}
+def _default_counts(config: dict) -> dict:
+    categories = config.get("categories", {})
+    return ({str(name): 0 for name in categories}
+            or {config["form_category"]: 0, config["proof_category"]: 0})
+
+def _read_counts(path: Path, defaults: dict) -> dict:
+    if not path.exists():
+        return defaults.copy()
     try:
-        data = json.loads(COUNTS_FILE.read_text())
-        if not isinstance(data, dict): return {"Form": 0, "Proof": 0}
+        data = json.loads(path.read_text())
+        if not isinstance(data, dict): return defaults.copy()
         counts = {str(k): int(v) for k, v in data.items() if isinstance(k, str) and isinstance(v, int) and v >= 0}
-        counts.setdefault("Form", 0); counts.setdefault("Proof", 0); return counts
-    except (json.JSONDecodeError, KeyError): return {"Form": 0, "Proof": 0}
+        for category, value in defaults.items(): counts.setdefault(category, value)
+        return counts
+    except (OSError, json.JSONDecodeError, KeyError):
+        return defaults.copy()
 
-def save_counts(counts: dict):
-    ensure_state_dir(); COUNTS_FILE.write_text(json.dumps(counts, indent=2))
+def _manifest_counts(project_dir: Path, defaults: dict) -> dict:
+    counts = defaults.copy()
+    for entries in load_manifest(project_dir).get("images", {}).values():
+        if not isinstance(entries, list): continue
+        for entry in entries:
+            if not isinstance(entry, dict): continue
+            category = entry.get("category")
+            index = entry.get("index_end", entry.get("index"))
+            if isinstance(category, str) and isinstance(index, int) and index >= 0:
+                counts[category] = max(counts.get(category, 0), index)
+    return counts
 
-def update_count_for_type(shot_type: str, counts: dict, steps: int) -> int:
-    counts.setdefault(shot_type, 0); counts[shot_type] += steps; save_counts(counts); return counts[shot_type]
+def load_counts(project_dir: Path | None = None) -> dict:
+    """Load category indices, scoped to a project when one is provided."""
+    if project_dir is None:
+        ensure_state_dir()
+        return _read_counts(COUNTS_FILE, {"Form": 0, "Proof": 0})
 
-def set_index_for_type(shot_type: str, index: int):
-    counts = load_counts(); counts[shot_type] = index; save_counts(counts)
+    project_dir = Path(project_dir)
+    defaults = _default_counts(load_config(project_dir))
+    project_counts = project_dir / PROJECT_COUNTS_NAME
+    if project_counts.exists():
+        return _read_counts(project_counts, defaults)
 
-def reset_indices(config: dict | None = None):
+    counts = _manifest_counts(project_dir, defaults)
+    if STATE_FILE.exists() and COUNTS_FILE.exists():
+        try:
+            previous_project = Path(STATE_FILE.read_text().strip()).expanduser().resolve()
+            if previous_project == project_dir.expanduser().resolve():
+                legacy = _read_counts(COUNTS_FILE, {})
+                counts.update({category: legacy[category] for category in defaults if category in legacy})
+        except OSError:
+            pass
+    return counts
+
+def save_counts(counts: dict, project_dir: Path | None = None):
+    if project_dir is None:
+        ensure_state_dir()
+        path = COUNTS_FILE
+    else:
+        path = Path(project_dir) / PROJECT_COUNTS_NAME
+    path.write_text(json.dumps(counts, indent=2) + "\n")
+
+def update_count_for_type(shot_type: str, counts: dict, steps: int, project_dir: Path | None = None) -> int:
+    counts.setdefault(shot_type, 0); counts[shot_type] += steps; save_counts(counts, project_dir); return counts[shot_type]
+
+def set_index_for_type(shot_type: str, index: int, project_dir: Path | None = None):
+    counts = load_counts(project_dir); counts[shot_type] = index; save_counts(counts, project_dir)
+
+def reset_indices(config: dict | None = None, project_dir: Path | None = None):
     config = config or DEFAULT_CONFIG; categories = config.get("categories", {})
-    save_counts({str(name): 0 for name in categories} or {config["form_category"]: 0, config["proof_category"]: 0})
+    save_counts({str(name): 0 for name in categories} or {config["form_category"]: 0, config["proof_category"]: 0}, project_dir)
 
 def resolve_category(value: str | None, counts: dict, config: dict) -> str:
     if not value: return config["proof_category"] if counts.get("__proof_flag__") else config["form_category"]
@@ -135,13 +183,41 @@ def load_manifest(project_dir: Path) -> dict:
 def save_manifest(project_dir: Path, manifest: dict):
     (project_dir / MANIFEST_NAME).write_text(json.dumps(manifest, indent=2) + "\n")
 
-def record_screenshot(project_dir: Path, screenshot: Path, index: int, category: str, index_end: int | None = None):
+def screenshot_manifest_record(project_dir: Path, screenshot: Path) -> tuple[str, dict] | None:
+    """Return the current image digest and first matching manifest record."""
+    digest = image_hash(screenshot)
+    entries = load_manifest(project_dir).get("images", {}).get(digest, [])
+    if not isinstance(entries, list):
+        return None
+    record = next((entry for entry in entries if isinstance(entry, dict)), None)
+    return (digest, record.copy()) if record else None
+
+def remove_screenshot_record(project_dir: Path, filename: str, digest: str | None = None):
+    """Remove manifest records for a deleted or replaced screenshot."""
+    manifest = load_manifest(project_dir)
+    images = manifest.setdefault("images", {})
+    if digest:
+        images.pop(digest, None)
+    for key, records in list(images.items()):
+        if not isinstance(records, list):
+            continue
+        records[:] = [record for record in records if record.get("filename") != filename]
+        if not records:
+            images.pop(key, None)
+    save_manifest(project_dir, manifest)
+
+def record_screenshot(project_dir: Path, screenshot: Path, index: int, category: str,
+                      index_end: int | None = None, previous_digest: str | None = None):
     manifest = load_manifest(project_dir)
     images = manifest.setdefault("images", {})
     filename = screenshot.name
-    for records in images.values():
+    if previous_digest:
+        images.pop(previous_digest, None)
+    for key, records in list(images.items()):
         if isinstance(records, list):
             records[:] = [record for record in records if record.get("filename") != filename]
+            if not records:
+                images.pop(key, None)
     digest = image_hash(screenshot)
     images.setdefault(digest, []).append({
         "filename": filename, "index": index, "index_end": index_end or index, "category": category,
@@ -173,7 +249,7 @@ class ConfigEditor:
         categories = self.config.setdefault("categories", {})
         if name in categories: raise ValueError(f"column already exists: {name}")
         categories[name] = {"suffix": "{category}"}
-        counts = load_counts(); counts.setdefault(name, 0); save_counts(counts); self.save()
+        counts = load_counts(self.project_dir); counts.setdefault(name, 0); save_counts(counts, self.project_dir); self.save()
 
     def rename_column(self, old: str, new: str):
         old, new = normalise_category(old), normalise_category(new)
@@ -183,8 +259,8 @@ class ConfigEditor:
         categories[new] = categories.pop(old)
         for key in ("form_category", "proof_category"):
             if self.config.get(key) == old: self.config[key] = new
-        counts = load_counts()
-        if old in counts: counts[new] = counts.pop(old); save_counts(counts)
+        counts = load_counts(self.project_dir)
+        if old in counts: counts[new] = counts.pop(old); save_counts(counts, self.project_dir)
         self.save()
 
     def remove_column(self, name: str):
@@ -192,7 +268,7 @@ class ConfigEditor:
         if name not in categories: raise ValueError(f"column does not exist: {name}")
         if name in (self.config.get("form_category"), self.config.get("proof_category")):
             raise ValueError("cannot remove the Form or Proof column; rename it instead")
-        categories.pop(name); counts = load_counts(); counts.pop(name, None); save_counts(counts); self.save()
+        categories.pop(name); counts = load_counts(self.project_dir); counts.pop(name, None); save_counts(counts, self.project_dir); self.save()
 
     def set_template(self, template: str, value: str, column: str | None = None):
         if column:

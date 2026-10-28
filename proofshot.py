@@ -55,7 +55,7 @@ from lib.config_service import (
     set_index_for_type, update_count_for_type, normalise_category,
     PROJECT_CONFIG_NAME, STATE_DIR, load_provider, save_provider, config_operation,
     expand_template, image_hash, load_manifest, record_screenshot, project_version,
-    CURRENT_PROJECT_VERSION,
+    remove_screenshot_record, screenshot_manifest_record, CURRENT_PROJECT_VERSION,
 )
 from lib.screenshot_service import (
     add_screenshot, available_providers, get_screenshot_service, remove_screenshot,
@@ -68,7 +68,7 @@ def manage_project(args, target_dir: Path, config: dict) -> bool:
     """Apply one project-management operation and return whether one was requested."""
     operation = next((name for name in (
         "rename_column", "add_column", "remove_column",
-        "add_screenshot", "remove_screenshot"
+        "add_screenshot", "remove_screenshot", "retake_screenshot"
     ) if getattr(args, name) is not None), None)
     if operation is None:
         return False
@@ -85,10 +85,10 @@ def manage_project(args, target_dir: Path, config: dict) -> bool:
             config["form_category"] = new
         if config.get("proof_category") == old:
             config["proof_category"] = new
-        counts = load_counts()
+        counts = load_counts(target_dir)
         if old in counts:
             counts[new] = counts.pop(old)
-            save_counts(counts)
+            save_counts(counts, target_dir)
         save_config(target_dir, config)
         print(f"Renamed column {old} to {new} in {target_dir / PROJECT_CONFIG_NAME}")
         return True
@@ -99,9 +99,9 @@ def manage_project(args, target_dir: Path, config: dict) -> bool:
         if name in categories:
             raise ValueError(f"column already exists: {name}")
         categories[name] = {"suffix": "{category}"}
-        counts = load_counts()
+        counts = load_counts(target_dir)
         counts.setdefault(name, 0)
-        save_counts(counts)
+        save_counts(counts, target_dir)
         save_config(target_dir, config)
         print(f"Added column {name}")
         return True
@@ -114,9 +114,9 @@ def manage_project(args, target_dir: Path, config: dict) -> bool:
         if name in (config.get("form_category"), config.get("proof_category")):
             raise ValueError("cannot remove the Form or Proof column; rename it instead")
         categories.pop(name)
-        counts = load_counts()
+        counts = load_counts(target_dir)
         counts.pop(name, None)
-        save_counts(counts)
+        save_counts(counts, target_dir)
         save_config(target_dir, config)
         print(f"Removed column {name}")
         return True
@@ -126,7 +126,33 @@ def manage_project(args, target_dir: Path, config: dict) -> bool:
         print(f"Added screenshot {destination.name}")
         return True
 
+    if operation == "retake_screenshot":
+        screenshot = target_dir / Path(args.retake_screenshot).name
+        if not screenshot.is_file() or screenshot.suffix.lower() != ".png":
+            raise ValueError(f"PNG screenshot not found: {args.retake_screenshot}")
+        manifest_entry = screenshot_manifest_record(target_dir, screenshot)
+        if manifest_entry is None:
+            raise ValueError(f"screenshot has no manifest index: {screenshot.name}")
+        previous_digest, record = manifest_entry
+        category = record.get("category")
+        index = record.get("index")
+        index_end = record.get("index_end", index)
+        if not isinstance(category, str) or not isinstance(index, int):
+            raise ValueError(f"screenshot has incomplete manifest metadata: {screenshot.name}")
+        screenshot_service = get_screenshot_service(load_provider())
+        screenshot_service.check_dependencies()
+        if not screenshot_service.capture(screenshot):
+            detail = screenshot_service.last_error or "capture was cancelled or returned an empty image"
+            raise ValueError(f"{load_provider()} retake failed: {detail}")
+        record_screenshot(target_dir, screenshot, index, category, index_end, previous_digest)
+        screenshot_service.notify(screenshot)
+        print(f"Retook screenshot {screenshot.name} at {category} index {index}")
+        return True
+
+    screenshot_path = target_dir / Path(args.remove_screenshot).name
+    manifest_entry = screenshot_manifest_record(target_dir, screenshot_path) if screenshot_path.is_file() else None
     screenshot = remove_screenshot(args.remove_screenshot, target_dir)
+    remove_screenshot_record(target_dir, screenshot.name, manifest_entry[0] if manifest_entry else None)
     print(f"Removed screenshot {screenshot.name}")
     return True
 
@@ -326,7 +352,7 @@ def print_index_table(target_dir: Path):
     print(border_top)
     
     # Print current indices
-    counts = load_counts()
+    counts = load_counts(target_dir)
     print("\nCurrent Index: " + ", ".join(f"{k}={index_label}{v}" for k, v in counts.items()))
 
 def view_index(target_dir: Path, index: int):
@@ -506,7 +532,7 @@ def main():
         create_project_config(target_dir)
         
         # Reset indices to 0
-        reset_indices(load_config(target_dir))
+        reset_indices(load_config(target_dir), target_dir)
         
         # Persist the new directory
         save_state(target_dir)
@@ -571,7 +597,7 @@ def main():
         return
 
     # Resolve category for index/capture operations. -P remains a Proof alias.
-    counts = load_counts()
+    counts = load_counts(target_dir)
     for category in config.get("categories", {}):
         if isinstance(category, str):
             counts.setdefault(category, 0)
@@ -586,7 +612,7 @@ def main():
     # Handle -I (index) flag when it is used by itself. With -N, -I means
     # capture at that exact index and commit it only after a successful capture.
     if args.index is not None and args.next is None:
-        set_index_for_type(shot_type, args.index)
+        set_index_for_type(shot_type, args.index, target_dir)
         print_box("PROOFSHOT: Index Set",
                   [f"Index for {shot_type}: {config.get('index_label', 'Q')}{args.index}",
                    f"Next -N will produce: {config.get('index_label', 'Q')}{args.index + 1}"])
@@ -615,7 +641,7 @@ def main():
         question_start, question_end = parse_question_arg(args.question)
     elif args.next is not None:
         # Auto-increment mode
-        counts = load_counts()
+        counts = load_counts(target_dir)
         last_q = counts[shot_type]
         step = args.next  # default 1 if passed as -N, or custom if -N 2
 
@@ -661,7 +687,6 @@ def main():
     success = screenshot_service.capture(target)
 
     if not success:
-        target.unlink(missing_ok=True)
         detail = screenshot_service.last_error or "capture was cancelled or returned an empty image"
         sys.exit(f"{load_provider()} capture failed: {detail} — nothing saved.")
 
@@ -670,13 +695,13 @@ def main():
     # Commit index state only after Flameshot has produced a valid screenshot.
     # This keeps cancellation (and other failed captures) side-effect free.
     if args.index is not None and args.next is not None:
-        set_index_for_type(shot_type, args.index)
+        set_index_for_type(shot_type, args.index, target_dir)
     else:
         if args.span and args.next:
             steps = question_end - question_start + 1
         else:
             steps = args.next if args.next else 1
-        update_count_for_type(shot_type, load_counts(), steps)
+        update_count_for_type(shot_type, load_counts(target_dir), steps, target_dir)
 
     screenshot_service.notify(target)
 

@@ -39,3 +39,4 @@ class ProjectImagesTests(TestCase):
                 "Figure10.png",
                 "legacy.png",
             ])
+            self.assertTrue(all(isinstance(image["modified_ns"], int) for image in images))

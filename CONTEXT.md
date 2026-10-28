@@ -13,6 +13,9 @@ A directory configured in the workspace whose immediate child directories are li
 **Project**:
 An independent directory containing screenshots and optional Proofshot configuration and manifest files. The project directory is the source of truth for project data.
 
+**Project index state**:
+The current index for each project column. Index state belongs to the project so switching projects restores the last Form, Proof, and custom-column indices used there.
+
 **Project browser**:
 The GUI view that lists projects discovered from configured discovery paths and supports project creation, initialization, and opening.
 

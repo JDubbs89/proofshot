@@ -5,7 +5,44 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from lib.screenshot_service import FlameshotService, GrimSlurpService
+from lib.screenshot_service import FlameshotService, GrimSlurpService, ScreenshotService
+
+
+class StubScreenshotService(ScreenshotService):
+    def __init__(self, replacement=None, error=None):
+        self.replacement = replacement
+        self.error = error
+
+    def capture_raw(self, target):
+        if self.error:
+            target.write_bytes(b"partial")
+            raise self.error
+        target.write_bytes(self.replacement)
+
+
+class ScreenshotReplacementTests(unittest.TestCase):
+    def test_failed_retake_preserves_the_original(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "capture.png"
+            original = b"original" * 20
+            target.write_bytes(original)
+
+            success = StubScreenshotService(error=OSError("cancelled")).capture(target)
+
+            self.assertFalse(success)
+            self.assertEqual(target.read_bytes(), original)
+
+    def test_successful_retake_atomically_replaces_the_original(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "capture.png"
+            replacement = b"replacement" * 20
+            target.write_bytes(b"original" * 20)
+
+            success = StubScreenshotService(replacement=replacement).capture(target)
+
+            self.assertTrue(success)
+            self.assertEqual(target.read_bytes(), replacement)
+            self.assertEqual(list(Path(temp_dir).glob(".*-capture-*.png")), [])
 
 
 class FlameshotServiceTests(unittest.TestCase):
