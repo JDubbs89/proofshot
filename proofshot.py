@@ -63,7 +63,7 @@ from lib.screenshot_service import (
 from lib.package_service import package_images
 from lib.cli_service import CLIService
 
-__version__ = "0.3.0"
+__version__ = "0.3.2"
 def manage_project(args, target_dir: Path, config: dict) -> bool:
     """Apply one project-management operation and return whether one was requested."""
     operation = next((name for name in (
