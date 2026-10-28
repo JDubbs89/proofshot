@@ -4,9 +4,9 @@
 
 Proofshot is a Linux CLI screenshot organizer for penetration testers, students, and anyone who needs repeatable screenshot indexing. It captures through selectable providers, names images consistently, tracks project columns, lists related images, and packages them for export.
 
-Current version: `0.3.2`
+Current version: `0.3.3`
 
-The 0.3.2 GUI is available as an optional PySide6 interface while the CLI remains the default lightweight installation.
+The 0.3.3 GUI is available as an optional PySide6 interface while the CLI remains the default lightweight installation.
 
 ## Features
 
@@ -32,6 +32,8 @@ The 0.3.2 GUI is available as an optional PySide6 interface while the CLI remain
 ```bash
 curl -fsSL https://raw.githubusercontent.com/JDubbs89/proofshot/main/release-install.sh | bash
 ```
+
+The installer asks whether you want a desktop shortcut for the GUI. It skips the question when the shortcut already exists. For an unattended install, set `PROOFSHOT_DESKTOP_SHORTCUT=yes` or `no`.
 
 The normal installer installs the default Flameshot dependencies. Set `PROOFSHOT_SKIP_DEPS=1` to skip dependency installation.
 

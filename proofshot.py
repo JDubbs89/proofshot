@@ -63,7 +63,7 @@ from lib.screenshot_service import (
 from lib.package_service import package_images
 from lib.cli_service import CLIService
 
-__version__ = "0.3.2"
+__version__ = "0.3.3"
 def manage_project(args, target_dir: Path, config: dict) -> bool:
     """Apply one project-management operation and return whether one was requested."""
     operation = next((name for name in (
@@ -384,6 +384,31 @@ def uninstall_command():
         installed_lib = executable.parent / "lib"
         if installed_lib.is_dir() and (installed_lib / "config_service.py").exists():
             shutil.rmtree(installed_lib)
+        installed_ui = executable.parent / "ui"
+        installed_ui_file = installed_ui / "main_window.ui"
+        if installed_ui_file.is_file():
+            installed_ui_file.unlink()
+            try:
+                installed_ui.rmdir()
+            except OSError:
+                pass
+        for installed_file in (executable.parent / "proofshot-gui", executable.parent / "default_config.json"):
+            if installed_file.is_file() or installed_file.is_symlink():
+                installed_file.unlink()
+        application_entry = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "applications/proofshot.desktop"
+        if application_entry.is_file() or application_entry.is_symlink():
+            application_entry.unlink()
+        desktop_override = os.environ.get("PROOFSHOT_DESKTOP_DIR")
+        if desktop_override:
+            desktop_dir = Path(desktop_override)
+        elif shutil.which("xdg-user-dir"):
+            result = subprocess.run(["xdg-user-dir", "DESKTOP"], capture_output=True, text=True, check=False)
+            desktop_dir = Path(result.stdout.strip()) if result.returncode == 0 and result.stdout.strip() else Path.home() / "Desktop"
+        else:
+            desktop_dir = Path.home() / "Desktop"
+        desktop_entry = desktop_dir / "proofshot.desktop"
+        if desktop_entry.is_file() or desktop_entry.is_symlink():
+            desktop_entry.unlink()
         print(f"Removed {executable}")
     else:
         print("proofshot is not installed at the requested path.")
