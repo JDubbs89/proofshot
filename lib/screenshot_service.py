@@ -48,11 +48,20 @@ class FlameshotService(ScreenshotService):
         except (FileNotFoundError, subprocess.CalledProcessError): raise SystemExit("flameshot not found. Install Flameshot or verify it is on PATH.")
 
     def capture_raw(self, target: Path):
+        environment = os.environ.copy()
+        # Flameshot launched through XWayland cannot request a screenshot from
+        # the Wayland portal. Prefer its native backend unless the user has
+        # explicitly chosen another Qt platform plugin.
+        if environment.get("XDG_SESSION_TYPE") == "wayland":
+            environment.setdefault("QT_QPA_PLATFORM", "wayland")
         with open(target, "wb") as output:
             result = subprocess.run(["flameshot", "gui", "--raw"], stdout=output,
-                                    stderr=subprocess.PIPE, text=True, check=False)
+                                    stderr=subprocess.PIPE, text=True, check=False,
+                                    env=environment)
         if result.returncode != 0:
-            detail = result.stderr.strip() or f"exit code {result.returncode}"
+            errors = [line for line in result.stderr.splitlines()
+                      if line.startswith("flameshot: error:")]
+            detail = "\n".join(dict.fromkeys(errors)) or result.stderr.strip() or f"exit code {result.returncode}"
             raise subprocess.SubprocessError(f"Flameshot capture failed: {detail}")
 
 class GnomeScreenshotService(ScreenshotService):
@@ -80,6 +89,36 @@ class GnomeScreenshotService(ScreenshotService):
         try: subprocess.run(["notify-send", "Screenshot Saved", str(target)], check=False)
         except FileNotFoundError: pass
 
+class GrimSlurpService(ScreenshotService):
+    """Native wlroots capture using Slurp's region selector and Grim."""
+
+    def install_dependencies(self):
+        install_packages("grim", "slurp")
+
+    def check_dependencies(self):
+        missing = [command for command in ("grim", "slurp") if not shutil.which(command)]
+        if missing:
+            raise SystemExit(
+                f"{' and '.join(missing)} not found. Install Grim and Slurp or choose another provider."
+            )
+
+    def capture_raw(self, target: Path):
+        selection = subprocess.run(["slurp"], capture_output=True, text=True, check=False)
+        if selection.returncode != 0:
+            detail = selection.stderr.strip() or "selection was cancelled"
+            raise subprocess.SubprocessError(f"Slurp selection failed: {detail}")
+
+        geometry = selection.stdout.strip()
+        if not geometry:
+            raise subprocess.SubprocessError("Slurp selection returned no region")
+
+        with open(target, "wb") as output:
+            result = subprocess.run(["grim", "-g", geometry, "-"], stdout=output,
+                                    stderr=subprocess.PIPE, text=True, check=False)
+        if result.returncode != 0:
+            detail = result.stderr.strip() or f"exit code {result.returncode}"
+            raise subprocess.SubprocessError(f"Grim capture failed: {detail}")
+
 def add_screenshot(source_path: str, target_dir: Path, force: bool = False):
     source = Path(source_path).expanduser().resolve()
     if not source.is_file(): raise ValueError(f"screenshot does not exist: {source}")
@@ -96,6 +135,7 @@ def remove_screenshot(name: str, target_dir: Path):
 PROVIDERS = {
     "flameshot": FlameshotService,
     "gnome-screenshot": GnomeScreenshotService,
+    "grim-slurp": GrimSlurpService,
 }
 
 def available_providers() -> list[str]:
@@ -110,11 +150,15 @@ def get_screenshot_service(provider: str) -> ScreenshotService:
 
 def install_package(package: str):
     """Install one provider package using the host's supported package manager."""
+    install_packages(package)
+
+def install_packages(*packages: str):
+    """Install provider packages using the host's supported package manager."""
     managers = (
-        ("apt-get", ["apt-get", "install", "-y", package]),
-        ("dnf", ["dnf", "install", "-y", package]),
-        ("pacman", ["pacman", "-Sy", "--needed", "--noconfirm", package]),
-        ("zypper", ["zypper", "--non-interactive", "install", package]),
+        ("apt-get", ["apt-get", "install", "-y", *packages]),
+        ("dnf", ["dnf", "install", "-y", *packages]),
+        ("pacman", ["pacman", "-Sy", "--needed", "--noconfirm", *packages]),
+        ("zypper", ["zypper", "--non-interactive", "install", *packages]),
     )
     for command, arguments in managers:
         if shutil.which(command):
@@ -124,6 +168,6 @@ def install_package(package: str):
             try:
                 subprocess.run(runner + arguments, check=True)
             except (OSError, subprocess.CalledProcessError) as exc:
-                raise SystemExit(f"Unable to install {package}: {exc}")
+                raise SystemExit(f"Unable to install {', '.join(packages)}: {exc}")
             return
-    raise SystemExit(f"No supported package manager found. Install {package} manually.")
+    raise SystemExit(f"No supported package manager found. Install {', '.join(packages)} manually.")

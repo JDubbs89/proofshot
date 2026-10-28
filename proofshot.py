@@ -63,7 +63,7 @@ from lib.screenshot_service import (
 from lib.package_service import package_images
 from lib.cli_service import CLIService
 
-__version__ = "0.2.7"
+__version__ = "0.3.0"
 def manage_project(args, target_dir: Path, config: dict) -> bool:
     """Apply one project-management operation and return whether one was requested."""
     operation = next((name for name in (
@@ -445,6 +445,10 @@ def main():
     parser = cli.parser
     args = cli.parse_args()
 
+    if args.gui:
+        from lib.gui import run_gui
+        raise SystemExit(run_gui())
+
     if args.uninstall:
         uninstall_command()
     if args.update:
@@ -653,7 +657,7 @@ def main():
             sys.exit("Aborted.")
 
     # Capture screenshot
-    print(f"\nLaunching Flameshot. Select the region to capture...\n")
+    print(f"\nLaunching {load_provider()}. Select the region to capture...\n")
     success = screenshot_service.capture(target)
 
     if not success:

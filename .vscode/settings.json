@@ -1,0 +1,7 @@
+{
+  "workbench.editorAssociations": {
+    "*.ui": "qt-ui.uiEditor"
+  },
+  "qt-core.qtInstallationRoot": "/home/jonathan/.local/lib/python3.14/site-packages/PySide6/Qt",
+  "qt-ui.customWidgetsDesignerExePath": "/home/jonathan/.local/bin/pyside6-designer"
+}

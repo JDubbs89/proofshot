@@ -36,7 +36,24 @@ if git -C "$repo_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   git -C "$repo_dir" pull --ff-only
 fi
 install -m 0755 "$repo_dir/proofshot.py" "$bin_dir/proofshot"
+cat > "$bin_dir/proofshot-gui" <<EOF
+#!/usr/bin/env bash
+exec "$bin_dir/proofshot" --gui "\$@"
+EOF
+chmod 0755 "$bin_dir/proofshot-gui"
 rm -rf "$bin_dir/lib"
 cp -R "$repo_dir/lib" "$bin_dir/lib"
+desktop_dir="${XDG_DATA_HOME:-${HOME}/.local/share}/applications"
+mkdir -p "$desktop_dir"
+cat > "$desktop_dir/proofshot.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Proofshot
+Comment=Browse and manage Proofshot projects
+Exec=$bin_dir/proofshot-gui
+Terminal=false
+Categories=Graphics;Utility;
+EOF
 printf 'Installed proofshot to %s/proofshot\n' "$bin_dir"
+printf 'Installed GUI launcher to %s/proofshot-gui\n' "$bin_dir"
 printf 'Ensure %s is on PATH.\n' "$bin_dir"
