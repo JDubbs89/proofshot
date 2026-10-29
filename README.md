@@ -4,9 +4,9 @@
 
 Proofshot is a Linux CLI screenshot organizer for penetration testers, students, and anyone who needs repeatable screenshot indexing. It captures through selectable providers, names images consistently, tracks project columns, lists related images, and packages them for export.
 
-Current version: `0.3.4`
+Current version: `0.3.5`
 
-The 0.3.4 GUI is available as an optional PySide6 interface while the CLI remains the default lightweight installation.
+The 0.3.5 GUI is available as an optional PySide6 interface while the CLI remains the default lightweight installation.
 
 ## Features
 

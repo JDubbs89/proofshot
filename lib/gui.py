@@ -401,6 +401,10 @@ def run_gui() -> int:
         nonlocal pending_preferred_path, pending_select_latest, retake_restore
         append_process_output()
         append_terminal(f"[process exited with code {exit_code}]")
+        if pending_select_latest:
+            window.show()
+            window.raise_()
+            window.activateWindow()
         terminal_input.setEnabled(True)
         terminal_input.setFocus()
         for control in capture_controls:
@@ -429,6 +433,8 @@ def run_gui() -> int:
         pending_select_latest = command_creates_image(arguments)
         pending_preferred_path = Path(preferred_path) if preferred_path else None
         append_terminal(f"$ proofshot {shlex.join(arguments)}")
+        if pending_select_latest:
+            window.hide()
         terminal_input.setEnabled(False)
         for control in capture_controls:
             control.setEnabled(False)
@@ -450,6 +456,10 @@ def run_gui() -> int:
     def terminal_error(_error):
         nonlocal pending_preferred_path, pending_select_latest, retake_restore
         append_terminal(f"[could not start Proofshot: {terminal_process.errorString()}]")
+        if pending_select_latest:
+            window.show()
+            window.raise_()
+            window.activateWindow()
         terminal_input.setEnabled(True)
         for control in capture_controls:
             control.setEnabled(active_project is not None)
@@ -854,6 +864,8 @@ def run_gui() -> int:
             QMessageBox.critical(window, "Create project failed", str(exc))
 
     def select_tree_item(item, _column):
+        if item is None:
+            return
         path = item.data(0, Qt.ItemDataRole.UserRole)
         if path:
             populate_images(path, select_latest=True)
@@ -1067,7 +1079,7 @@ def run_gui() -> int:
     retake_image_action.setShortcutContext(Qt.ShortcutContext.WidgetShortcut)
     retake_image_action.triggered.connect(retake_selected_image)
     image_gallery.addAction(retake_image_action)
-    tree.itemClicked.connect(select_tree_item)
+    tree.currentItemChanged.connect(select_tree_item)
     image_gallery.currentItemChanged.connect(select_image)
     search_filter.textChanged.connect(lambda _text: render_gallery())
     terminal_input.returnPressed.connect(run_terminal_command)

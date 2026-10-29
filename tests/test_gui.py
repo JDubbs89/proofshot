@@ -74,6 +74,132 @@ class CaptureToolbarTests(TestCase):
             "captureProjectButton",
         }.issubset(names))
 
+    def test_selecting_a_project_enables_capture_controls(self):
+        if importlib.util.find_spec("PySide6") is None:
+            self.skipTest("PySide6 is not installed")
+        script = textwrap.dedent("""
+            import json
+            import tempfile
+            from pathlib import Path
+            from PySide6.QtCore import QTimer
+            from PySide6.QtWidgets import QApplication, QTreeWidget, QPushButton
+            import lib.gui as gui
+            from lib.config_service import create_project_config
+
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                projects = root / "projects"
+                project = projects / "Demo"
+                project.mkdir(parents=True)
+                create_project_config(project)
+                state = root / "state"
+                state.mkdir()
+                (state / "workspace.json").write_text(json.dumps({
+                    "version": 1, "discovery_paths": [str(projects)]
+                }))
+                gui.STATE_DIR = state
+                app = QApplication([])
+                result = {"enabled": False}
+
+                def inspect():
+                    window = next(widget for widget in app.topLevelWidgets() if widget.isVisible())
+                    result["enabled"] = window.findChild(QPushButton, "captureProjectButton").isEnabled()
+                    app.quit()
+
+                def select_project():
+                    window = next(widget for widget in app.topLevelWidgets() if widget.isVisible())
+                    tree = window.findChild(QTreeWidget, "treeView")
+                    tree.setCurrentItem(tree.topLevelItem(0).child(0))
+                    QTimer.singleShot(0, inspect)
+
+                QTimer.singleShot(100, select_project)
+                gui.run_gui()
+                raise SystemExit(0 if result["enabled"] else 1)
+        """)
+        environment = os.environ.copy()
+        environment["QT_QPA_PLATFORM"] = "offscreen"
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=ROOT,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_capture_hides_and_restores_the_window(self):
+        if importlib.util.find_spec("PySide6") is None:
+            self.skipTest("PySide6 is not installed")
+        script = textwrap.dedent("""
+            import json
+            import sys
+            import tempfile
+            from pathlib import Path
+            from PySide6.QtCore import QTimer
+            from PySide6.QtWidgets import QApplication, QTreeWidget, QPushButton
+            import lib.gui as gui
+            from lib.config_service import create_project_config
+
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                projects = root / "projects"
+                project = projects / "Demo"
+                project.mkdir(parents=True)
+                create_project_config(project)
+                state = root / "state"
+                state.mkdir()
+                (state / "workspace.json").write_text(json.dumps({
+                    "version": 1, "discovery_paths": [str(projects)]
+                }))
+                gui.STATE_DIR = state
+                gui.proofshot_command = lambda: (
+                    sys.executable, ["-c", "import time; time.sleep(0.3)"]
+                )
+                app = QApplication([])
+                result = {}
+                window = None
+
+                def inspect_restored():
+                    result["visible_after_capture"] = window.isVisible()
+                    window.close()
+                    app.quit()
+
+                def inspect_hidden():
+                    result["hidden_during_capture"] = not window.isVisible()
+                    QTimer.singleShot(500, inspect_restored)
+
+                def start_capture():
+                    tree = window.findChild(QTreeWidget, "treeView")
+                    tree.setCurrentItem(tree.topLevelItem(0).child(0))
+                    QTimer.singleShot(0, lambda: window.findChild(
+                        QPushButton, "captureProjectButton").click())
+                    QTimer.singleShot(80, inspect_hidden)
+
+                def begin():
+                    global window
+                    window = next(widget for widget in app.topLevelWidgets() if widget.isVisible())
+                    QTimer.singleShot(100, start_capture)
+
+                QTimer.singleShot(0, begin)
+                gui.run_gui()
+                expected = {"hidden_during_capture": True, "visible_after_capture": True}
+                raise SystemExit(0 if result == expected else 1)
+        """)
+        environment = os.environ.copy()
+        environment["QT_QPA_PLATFORM"] = "offscreen"
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=ROOT,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_rendered_menu_bar_uses_the_dark_palette(self):
         if importlib.util.find_spec("PySide6") is None:
             self.skipTest("PySide6 is not installed")

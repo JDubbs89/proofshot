@@ -20,6 +20,6 @@ class VersionTests(TestCase):
         )
         default_version = json.loads((ROOT / "default_config.json").read_text())["proofshot_version"]
 
-        self.assertEqual(release_version, "0.3.4")
+        self.assertEqual(release_version, "0.3.5")
         self.assertEqual(CURRENT_PROJECT_VERSION, release_version)
         self.assertEqual(default_version, release_version)
