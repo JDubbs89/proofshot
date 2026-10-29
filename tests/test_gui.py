@@ -3,17 +3,40 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import textwrap
 from unittest import TestCase
 from xml.etree import ElementTree
 
-from lib.gui import capture_arguments, command_creates_image, most_recent_image, should_use_compact_layout
+from lib.gui import (
+    capture_arguments,
+    command_creates_image,
+    most_recent_image,
+    proofshot_command,
+    should_use_compact_layout,
+)
 
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 class CaptureToolbarTests(TestCase):
+    def test_source_layout_runs_proofshot_with_python(self):
+        program, arguments = proofshot_command(ROOT)
+
+        self.assertEqual(program, sys.executable)
+        self.assertEqual(arguments, [str(ROOT / "proofshot.py")])
+
+    def test_installed_layout_uses_the_installed_proofshot_executable(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            install_root = Path(temporary_directory)
+            (install_root / "proofshot").touch()
+
+            program, arguments = proofshot_command(install_root)
+
+        self.assertEqual(program, str(install_root / "proofshot"))
+        self.assertEqual(arguments, [])
+
     def test_builds_next_capture_arguments(self):
         self.assertEqual(capture_arguments("Proof", 2, False), ["-C", "Proof", "-N", "2"])
         self.assertEqual(capture_arguments("Form", 3, True), ["-C", "Form", "-N", "3", "-S"])

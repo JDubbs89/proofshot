@@ -29,6 +29,15 @@ def command_creates_image(arguments: list[str]) -> bool:
     return any(argument in capture_flags for argument in arguments)
 
 
+def proofshot_command(install_root: Path | None = None) -> tuple[str, list[str]]:
+    """Resolve the CLI command for source checkouts and installed layouts."""
+    root = install_root or Path(__file__).resolve().parents[1]
+    source_script = root / "proofshot.py"
+    if source_script.is_file():
+        return sys.executable, [str(source_script)]
+    return str(root / "proofshot"), []
+
+
 def most_recent_image(images: list[dict]) -> dict | None:
     """Return the most recently modified image, with a stable filename tie-break."""
     return max(images, key=lambda image: (image.get("modified_ns", 0), image["filename"].casefold()), default=None)
@@ -423,8 +432,9 @@ def run_gui() -> int:
         terminal_input.setEnabled(False)
         for control in capture_controls:
             control.setEnabled(False)
-        terminal_process.setProgram(sys.executable)
-        terminal_process.setArguments([str(Path(__file__).resolve().parents[1] / "proofshot.py"), *arguments])
+        program, command_arguments = proofshot_command()
+        terminal_process.setProgram(program)
+        terminal_process.setArguments([*command_arguments, *arguments])
         terminal_process.start()
 
     def run_terminal_command():
