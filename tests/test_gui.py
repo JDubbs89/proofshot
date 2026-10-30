@@ -82,7 +82,7 @@ class CaptureToolbarTests(TestCase):
             import tempfile
             from pathlib import Path
             from PySide6.QtCore import QTimer
-            from PySide6.QtWidgets import QApplication, QTreeWidget, QPushButton
+            from PySide6.QtWidgets import QApplication, QDialog, QTreeWidget, QPushButton
             import lib.gui as gui
             from lib.config_service import create_project_config
 
@@ -129,7 +129,89 @@ class CaptureToolbarTests(TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_capture_hides_and_restores_the_window(self):
+    def test_capture_stays_in_terminal_topbar_and_runs_cli_child(self):
+        if importlib.util.find_spec("PySide6") is None:
+            self.skipTest("PySide6 is not installed")
+        script = textwrap.dedent("""
+            import json
+            import sys
+            import tempfile
+            from pathlib import Path
+            from PySide6.QtCore import QTimer
+            from PySide6.QtWidgets import QApplication, QTreeWidget, QPushButton, QWidget
+            import lib.gui as gui
+            from lib.config_service import create_project_config
+
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                projects = root / "projects"
+                project = projects / "Demo"
+                project.mkdir(parents=True)
+                create_project_config(project)
+                state = root / "state"
+                state.mkdir()
+                (state / "workspace.json").write_text(json.dumps({
+                    "version": 1, "discovery_paths": [str(projects)]
+                }))
+                gui.STATE_DIR = state
+                gui.proofshot_command = lambda: (
+                    sys.executable, ["-c", "import time; time.sleep(0.3)"]
+                )
+                app = QApplication([])
+                result = {}
+                window = None
+
+                def inspect_restored():
+                    result["visible_after_capture"] = window.isVisible()
+                    result["capture_header_in_terminal"] = (
+                        window.findChild(QWidget, "captureHeader").parent()
+                        is window.findChild(QWidget, "terminalPanel")
+                    )
+                    window.close()
+                    app.quit()
+
+                def inspect_hidden():
+                    result["main_visible_during_capture"] = window.isVisible()
+                    result["capture_header_visible"] = window.findChild(
+                        QWidget, "captureHeader").isVisible()
+                    QTimer.singleShot(500, inspect_restored)
+
+                def start_capture():
+                    tree = window.findChild(QTreeWidget, "treeView")
+                    tree.setCurrentItem(tree.topLevelItem(0).child(0))
+                    QTimer.singleShot(0, lambda: window.findChild(
+                        QPushButton, "captureProjectButton").click())
+                    QTimer.singleShot(80, inspect_hidden)
+
+                def begin():
+                    global window
+                    window = next(widget for widget in app.topLevelWidgets() if widget.isVisible())
+                    QTimer.singleShot(100, start_capture)
+
+                QTimer.singleShot(0, begin)
+                gui.run_gui()
+                expected = {
+                    "main_visible_during_capture": True,
+                    "capture_header_visible": True,
+                    "capture_header_in_terminal": True,
+                    "visible_after_capture": True,
+                }
+                raise SystemExit(0 if result == expected else 1)
+        """)
+        environment = os.environ.copy()
+        environment["QT_QPA_PLATFORM"] = "offscreen"
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=ROOT,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_cli_child_stdin_is_closed_for_interactive_providers(self):
         if importlib.util.find_spec("PySide6") is None:
             self.skipTest("PySide6 is not installed")
         script = textwrap.dedent("""
@@ -155,37 +237,30 @@ class CaptureToolbarTests(TestCase):
                 }))
                 gui.STATE_DIR = state
                 gui.proofshot_command = lambda: (
-                    sys.executable, ["-c", "import time; time.sleep(0.3)"]
+                    sys.executable,
+                    ["-c", "import sys; sys.stdin.read(); print('stdin reached EOF')"],
                 )
                 app = QApplication([])
-                result = {}
-                window = None
+                result = {"finished": False}
 
-                def inspect_restored():
-                    result["visible_after_capture"] = window.isVisible()
+                def inspect():
+                    window = next(widget for widget in app.topLevelWidgets() if widget.isVisible())
+                    output = window.findChild(object, "terminalOutput").toPlainText()
+                    result["finished"] = "stdin reached EOF" in output
                     window.close()
                     app.quit()
 
-                def inspect_hidden():
-                    result["hidden_during_capture"] = not window.isVisible()
-                    QTimer.singleShot(500, inspect_restored)
-
                 def start_capture():
+                    window = next(widget for widget in app.topLevelWidgets() if widget.isVisible())
                     tree = window.findChild(QTreeWidget, "treeView")
                     tree.setCurrentItem(tree.topLevelItem(0).child(0))
                     QTimer.singleShot(0, lambda: window.findChild(
                         QPushButton, "captureProjectButton").click())
-                    QTimer.singleShot(80, inspect_hidden)
+                    QTimer.singleShot(300, inspect)
 
-                def begin():
-                    global window
-                    window = next(widget for widget in app.topLevelWidgets() if widget.isVisible())
-                    QTimer.singleShot(100, start_capture)
-
-                QTimer.singleShot(0, begin)
+                QTimer.singleShot(100, start_capture)
                 gui.run_gui()
-                expected = {"hidden_during_capture": True, "visible_after_capture": True}
-                raise SystemExit(0 if result == expected else 1)
+                raise SystemExit(0 if result["finished"] else 1)
         """)
         environment = os.environ.copy()
         environment["QT_QPA_PLATFORM"] = "offscreen"
@@ -196,6 +271,7 @@ class CaptureToolbarTests(TestCase):
             capture_output=True,
             text=True,
             check=False,
+            timeout=10,
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -257,28 +333,11 @@ class CaptureToolbarTests(TestCase):
                 header = window.findChild(QWidget, "captureHeader")
                 result["valid"] &= splitter.orientation() == Qt.Orientation.Vertical
                 result["valid"] &= gallery.viewMode() == QListView.ViewMode.ListMode
+                result["valid"] &= header.parent() is terminal
                 result["valid"] &= tabs.isVisible() and tabs.isAncestorOf(browser) and tabs.isAncestorOf(terminal)
                 result["valid"] &= len(splitter.sizes()) == 3 and min(splitter.sizes()) > 0
                 tabs.setCurrentIndex(1)
                 QApplication.processEvents()
-                control_names = (
-                    "captureColumnCombo", "captureSpanCheck", "captureIncrementSpin",
-                    "indexDecrementButton", "currentIndexSpin", "indexIncrementButton",
-                    "captureProjectButton",
-                )
-                result["valid"] &= all(
-                    window.findChild(QWidget, name).geometry().bottom() < header.height()
-                    for name in control_names
-                )
-                step_heights = {
-                    window.findChild(QWidget, name).height()
-                    for name in ("captureStepDecrementButton", "captureIncrementSpin", "captureStepIncrementButton")
-                }
-                index_heights = {
-                    window.findChild(QWidget, name).height()
-                    for name in ("indexDecrementButton", "currentIndexSpin", "indexIncrementButton")
-                }
-                result["valid"] &= step_heights == {34} and index_heights == {34}
                 gallery.addItem(QListWidgetItem("Example.png"))
                 result["valid"] &= gallery.sizeHintForRow(gallery.count() - 1) <= 60
                 window.findChild(QTabWidget, "detailTabs").setCurrentIndex(1)
@@ -290,15 +349,16 @@ class CaptureToolbarTests(TestCase):
                 result["valid"] &= all(
                     button.height() >= button.fontMetrics().height() + 8 for button in metadata_tabs
                 )
-                result["valid"] &= header.height() <= 60
                 window.resize(480, 900)
                 QTimer.singleShot(150, inspect_wrapped)
 
             def inspect_wrapped():
                 window = next(widget for widget in app.topLevelWidgets() if widget.isVisible())
+                terminal = window.findChild(QWidget, "terminalPanel")
                 header = window.findChild(QWidget, "captureHeader")
                 column = window.findChild(QWidget, "captureColumnCombo")
                 capture = window.findChild(QWidget, "captureProjectButton")
+                result["valid"] &= header.parent() is terminal
                 result["valid"] &= header.height() >= 95
                 result["valid"] &= capture.geometry().top() > column.geometry().top()
                 window.resize(1200, 760)

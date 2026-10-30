@@ -1,5 +1,6 @@
 """Optional PySide6 GUI for project discovery and image management."""
 from pathlib import Path
+import os
 import shlex
 import sys
 
@@ -227,6 +228,10 @@ def run_gui() -> int:
     retake_restore = None
     terminal_process = QProcess(window)
     terminal_process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+    # QProcess otherwise exposes a pipe as the child's stdin. Slurp treats
+    # non-terminal stdin as piped region input and waits for EOF before showing
+    # its overlay; /dev/null supplies immediate EOF for GUI-launched captures.
+    terminal_process.setStandardInputFile(os.devnull)
     project_watcher = QFileSystemWatcher(window)
     refresh_timer = QTimer(window)
     refresh_timer.setSingleShot(True)
@@ -329,7 +334,7 @@ def run_gui() -> int:
             capture_header_layout.takeAt(0)
         for column in range(6):
             capture_header_layout.setColumnStretch(column, 0)
-        terminal_label.hide()
+        terminal_label.show()
         for label in (capture_column_label, capture_step_label, current_index_label):
             label.show()
         wrapped = compact and window.width() < 500
@@ -363,6 +368,12 @@ def run_gui() -> int:
             configure_capture_header(True)
 
     configure_capture_header(False)
+
+    terminal_header_layout = QHBoxLayout()
+    terminal_header_layout.addWidget(terminal_label)
+    terminal_header_layout.addStretch()
+    main_terminal_layout.insertLayout(0, terminal_header_layout)
+    main_terminal_layout.insertWidget(1, capture_header)
 
     compact_tabs = QTabWidget(window)
     compact_tabs.setObjectName("compactBottomTabs")
@@ -401,10 +412,6 @@ def run_gui() -> int:
         nonlocal pending_preferred_path, pending_select_latest, retake_restore
         append_process_output()
         append_terminal(f"[process exited with code {exit_code}]")
-        if pending_select_latest:
-            window.show()
-            window.raise_()
-            window.activateWindow()
         terminal_input.setEnabled(True)
         terminal_input.setFocus()
         for control in capture_controls:
@@ -433,8 +440,6 @@ def run_gui() -> int:
         pending_select_latest = command_creates_image(arguments)
         pending_preferred_path = Path(preferred_path) if preferred_path else None
         append_terminal(f"$ proofshot {shlex.join(arguments)}")
-        if pending_select_latest:
-            window.hide()
         terminal_input.setEnabled(False)
         for control in capture_controls:
             control.setEnabled(False)
@@ -456,10 +461,6 @@ def run_gui() -> int:
     def terminal_error(_error):
         nonlocal pending_preferred_path, pending_select_latest, retake_restore
         append_terminal(f"[could not start Proofshot: {terminal_process.errorString()}]")
-        if pending_select_latest:
-            window.show()
-            window.raise_()
-            window.activateWindow()
         terminal_input.setEnabled(True)
         for control in capture_controls:
             control.setEnabled(active_project is not None)
@@ -1089,7 +1090,6 @@ def run_gui() -> int:
     QWidget.setTabOrder(capture_span, capture_increment)
     QWidget.setTabOrder(capture_increment, current_index)
     QWidget.setTabOrder(current_index, capture_button)
-    QWidget.setTabOrder(capture_button, terminal_output)
     QWidget.setTabOrder(terminal_output, terminal_input)
     refresh()
     window.show()
